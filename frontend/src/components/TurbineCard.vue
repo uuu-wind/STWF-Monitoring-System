@@ -1,5 +1,5 @@
 <template>
-  <el-card class="turbine-card" :class="`status-${turbine.status}`" shadow="hover">
+  <el-card class="turbine-card" :class="`status-${turbine.status}`" shadow="hover" @click="navigateToAnalysis">
     <template #header>
       <div class="card-header">
         <div class="header-left">
@@ -109,6 +109,7 @@ import {
   Clock,
   ArrowRight
 } from '@element-plus/icons-vue'
+import { useRouter } from 'vue-router'
 
 export default {
   name: 'TurbineCard',
@@ -117,6 +118,27 @@ export default {
       type: Object,
       required: true
     }
+  },
+  setup(props) {
+    const router = useRouter()
+
+    const navigateToAnalysis = () => {
+      router.push({
+        path: '/local-analysis',
+        query: { id: props.turbine.id }
+      })
+    }
+
+    return {
+      navigateToAnalysis
+    }
+  },
+  components: {
+    Location,
+    Warning,
+    TrendCharts,
+    Clock,
+    ArrowRight
   },
   computed: {
     activeFaults() {

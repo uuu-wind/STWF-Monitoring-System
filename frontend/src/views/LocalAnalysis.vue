@@ -207,72 +207,77 @@
 </template>
 
 <script>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import axios from 'axios'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 import { WindPower } from '@element-plus/icons-vue'
 
-// 模拟风机数据
-const mockTurbineInfo = {
-  name: '北风一号',
-  location: '内蒙古风场A区',
-  bladeLength: 55,
-  rotorDiameter: 112,
-  ratedPower: 2500,
-  hubHeight: 120,
-  bladeCount: 3,
-  speedRange: '3-20 RPM'
-}
+// API基础URL
+const API_BASE_URL = 'http://localhost:8000/api'
 
-// 模拟运行数据
-const mockRuntimeData = {
-  dailyGeneration: 28500,
-  activePower: 2200,
-  reactivePower: 350,
-  apparentPower: 2230
-}
-
-// 模拟系统信息
-const mockSystemInfo = {
-  model: 'WTG-2.5MW',
-  manufacturer: '新能源科技有限公司',
-  installationDate: '2024-03-15',
-  runHours: 8640,
-  maintenanceCycle: 90,
-  status: 'running',
-  statusText: '运行中'
-}
-
-// 模拟风速风向数据
-const mockWindData = {
-  speed: 12.5,
-  direction: 135
-}
-
-// 模拟告警统计数据
-const mockAlertStats = {
-  critical: 0,
-  major: 2,
-  minor: 5
-}
-
-// 模拟发电量趋势数据
-const mockPowerTrend = {
-  hours: ['00', '02', '04', '06', '08', '10', '12', '14', '16', '18', '20', '22'],
-  power: [850, 720, 680, 1200, 2100, 2800, 3100, 2900, 2700, 2200, 1500, 1000]
-}
+// 创建axios实例
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
 
 export default {
   name: 'LocalAnalysis',
   setup() {
+    // 获取路由参数
+    const route = useRoute()
+    
+    // 从路由参数中获取风机ID，默认为T001
+    const turbineId = computed(() => route.query.id || 'T001')
+
     // 响应式数据
-    const turbineInfo = ref({ ...mockTurbineInfo })
-    const runtimeData = ref({ ...mockRuntimeData })
-    const systemInfo = ref({ ...mockSystemInfo })
-    const windData = ref({ ...mockWindData })
-    const alertStats = ref({ ...mockAlertStats })
+    const turbineInfo = ref({ 
+      name: '加载中...',
+      location: '',
+      bladeLength: 0,
+      rotorDiameter: 0,
+      ratedPower: 0,
+      hubHeight: 0,
+      bladeCount: 0,
+      speedRange: ''
+    })
+    const runtimeData = ref({ 
+      dailyGeneration: 0,
+      activePower: 0,
+      reactivePower: 0,
+      apparentPower: 0
+    })
+    const systemInfo = ref({ 
+      model: '',
+      manufacturer: '',
+      installationDate: '',
+      runHours: 0,
+      maintenanceCycle: 0,
+      status: 'running',
+      statusText: '运行中'
+    })
+    const windData = ref({ 
+      speed: 0,
+      direction: 0
+    })
+    const alertStats = ref({ 
+      critical: 0,
+      major: 0,
+      minor: 0
+    })
+    const powerTrend = ref({ 
+      hours: [],
+      power: []
+    })
+    const loading = ref(false)
 
     // 图表引用
     const powerChart = ref(null)
@@ -301,26 +306,93 @@ export default {
       return power.toFixed(0) + ' kW'
     }
 
+    // 获取风机信息
+    const fetchTurbineInfo = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}`)
+        turbineInfo.value = response.data
+      } catch (error) {
+        console.error('获取风机信息失败:', error)
+        ElMessage.error('获取风机信息失败')
+      }
+    }
+
+    // 获取运行数据
+    const fetchRuntimeData = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}/runtime`)
+        runtimeData.value = response.data
+      } catch (error) {
+        console.error('获取运行数据失败:', error)
+        ElMessage.error('获取运行数据失败')
+      }
+    }
+
+    // 获取系统信息
+    const fetchSystemInfo = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}/system`)
+        systemInfo.value = response.data
+      } catch (error) {
+        console.error('获取系统信息失败:', error)
+        ElMessage.error('获取系统信息失败')
+      }
+    }
+
+    // 获取风速风向数据
+    const fetchWindData = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}/wind`)
+        windData.value = response.data
+      } catch (error) {
+        console.error('获取风速风向数据失败:', error)
+        ElMessage.error('获取风速风向数据失败')
+      }
+    }
+
+    // 获取告警统计
+    const fetchAlertStats = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}/alerts`)
+        alertStats.value = response.data
+        updateAlertChart()
+      } catch (error) {
+        console.error('获取告警统计失败:', error)
+        ElMessage.error('获取告警统计失败')
+      }
+    }
+
+    // 获取发电量趋势
+    const fetchPowerTrend = async () => {
+      try {
+        const response = await apiClient.get(`/turbines/${turbineId.value}/power/trend`)
+        powerTrend.value = response.data
+        updatePowerChart()
+      } catch (error) {
+        console.error('获取发电量趋势失败:', error)
+        ElMessage.error('获取发电量趋势失败')
+      }
+    }
+
     // 刷新数据
-    const refreshData = () => {
-      // 模拟数据更新
-      runtimeData.value.dailyGeneration += Math.random() * 1000 - 500
-      runtimeData.value.activePower += Math.random() * 100 - 50
-      runtimeData.value.reactivePower += Math.random() * 50 - 25
-      runtimeData.value.apparentPower += Math.random() * 100 - 50
-      
-      windData.value.speed += Math.random() * 2 - 1
-      windData.value.direction += Math.random() * 20 - 10
-      
-      // 确保值在合理范围内
-      windData.value.speed = Math.max(0, Math.min(windData.value.speed, 25))
-      windData.value.direction = (windData.value.direction + 360) % 360
-      
-      // 更新图表
-      updatePowerChart()
-      updateAlertChart()
-      
-      // 可以添加刷新成功的提示
+    const refreshData = async () => {
+      try {
+        loading.value = true
+        await Promise.all([
+          fetchTurbineInfo(),
+          fetchRuntimeData(),
+          fetchSystemInfo(),
+          fetchWindData(),
+          fetchAlertStats(),
+          fetchPowerTrend()
+        ])
+        ElMessage.success('数据刷新成功')
+      } catch (error) {
+        console.error('刷新数据失败:', error)
+        ElMessage.error('刷新数据失败')
+      } finally {
+        loading.value = false
+      }
     }
 
     // 初始化发电量折线图
@@ -363,7 +435,7 @@ export default {
           {
             type: 'category',
             boundaryGap: false,
-            data: mockPowerTrend.hours,
+            data: powerTrend.value.hours || [],
             axisLine: {
               lineStyle: {
                 color: 'rgba(255, 255, 255, 0.5)'
@@ -427,7 +499,7 @@ export default {
                 global: false
               }
             },
-            data: mockPowerTrend.power
+            data: powerTrend.value.power || []
           }
         ]
       }
@@ -694,20 +766,20 @@ export default {
         initThreeJs()
       })
 
+      // 初始加载数据
+      refreshData()
+
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
-    })
 
-    onUnmounted(() => {
-      isUnmounted = true
-      window.removeEventListener('resize', handleResize)
-      
-      // 销毁图表实例
-      powerChartInstance?.dispose()
-      alertChartInstance?.dispose()
+      // 自动更新数据
+      const updateInterval = setInterval(() => {
+        if (isUnmounted) return
+        refreshData()
+      }, 30000) // 每30秒自动刷新一次数据
 
-      // 清理Three.js资源
-      cleanupThreeJs()
+      // 存储定时器引用，以便在组件卸载时清除
+      window.localAnalysisUpdateInterval = updateInterval
     })
 
     // 处理窗口大小变化

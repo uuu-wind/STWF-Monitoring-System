@@ -149,6 +149,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
+import axios from 'axios'
 import TurbineCard from '@components/TurbineCard.vue'
 import {
   Refresh,
@@ -166,104 +167,17 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 
-// 模拟风机数据
-const mockTurbines = [
-  {
-    id: 'T001',
-    name: '北风一号',
-    location: '内蒙古风场A区',
-    status: 'running',
-    power: 2500,
-    windSpeed: 12.5,
-    temperature: 28,
-    vibration: 1.2,
-    lastMaintenance: '2026-01-10',
-    efficiency: 92,
-    faults: [
-      { id: 'F001', type: 'sensor', severity: 'low', description: '温度传感器读数偏差', timestamp: '2026-01-18 08:30', resolved: false }
-    ]
-  },
-  {
-    id: 'T002',
-    name: '北风二号',
-    location: '内蒙古风场A区',
-    status: 'warning',
-    power: 1800,
-    windSpeed: 15.2,
-    temperature: 32,
-    vibration: 3.5,
-    lastMaintenance: '2026-01-05',
-    efficiency: 78,
-    faults: [
-      { id: 'F002', type: 'gearbox', severity: 'high', description: '齿轮箱温度过高', timestamp: '2026-01-18 09:15', resolved: false },
-      { id: 'F003', type: 'vibration', severity: 'medium', description: '振动值异常', timestamp: '2026-01-18 10:00', resolved: false }
-    ]
-  },
-  // 可以继续添加更多风机数据...
-]
+// API基础URL
+const API_BASE_URL = 'http://localhost:8000/api'
 
-// 模拟当日发电数据
-const mockDailyStats = {
-  totalGeneration: 85600,
-  avgPower: 2850,
-  maxPower: 3200,
-  runTime: 24,
-  avgEfficiency: 89.5
-}
-
-// 模拟警告信息
-const mockWarnings = [
-  {
-    id: 'W001',
-    title: '齿轮箱温度过高',
-    description: '北风二号风机齿轮箱温度超过阈值，当前温度：75°C',
-    type: 'warning',
-    timestamp: '2026-01-18 14:30'
-  },
-  {
-    id: 'W002',
-    title: '振动值异常',
-    description: '北风二号风机振动值超过安全范围，当前值：4.5mm/s',
-    type: 'warning',
-    timestamp: '2026-01-18 14:45'
-  },
-  {
-    id: 'W003',
-    title: '风速传感器故障',
-    description: '北风五号风机风速传感器无响应，请检查',
-    type: 'error',
-    timestamp: '2026-01-18 15:00'
-  },
-  {
-    id: 'W004',
-    title: '发电机温度偏高',
-    description: '北风三号风机发电机温度偏高，当前温度：65°C',
-    type: 'warning',
-    timestamp: '2026-01-18 15:15'
+// 创建axios实例
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
   }
-]
-
-// 模拟故障分布数据
-const mockFaultDistribution = [
-  { name: '传感器故障', value: 25 },
-  { name: '齿轮箱故障', value: 15 },
-  { name: '发电机故障', value: 10 },
-  { name: '叶片故障', value: 8 },
-  { name: '其他故障', value: 12 }
-]
-
-// 模拟每日故障数数据
-const mockDailyFaults = {
-  dates: ['1-13', '1-14', '1-15', '1-16', '1-17', '1-18'],
-  counts: [12, 8, 15, 10, 7, 14]
-}
-
-// 模拟当日发电量对比数据
-const mockPowerComparison = {
-  hours: ['00', '02', '04', '06', '08', '10', '12', '14', '16', '18', '20', '22'],
-  actual: [850, 720, 680, 1200, 2100, 2800, 3100, 2900, 2700, 2200, 1500, 1000],
-  predicted: [900, 800, 700, 1300, 2000, 2700, 3000, 2800, 2600, 2300, 1600, 1100]
-}
+})
 
 export default {
   name: 'Dashboard',
@@ -272,13 +186,17 @@ export default {
   },
   setup() {
     // 响应式数据
-    const turbines = ref([...mockTurbines])
+    const turbines = ref([])
     const filterStatus = ref('')
     const sortBy = ref('power')
     const currentPage = ref(1)
     const pageSize = ref(8)
-    const dailyStats = ref({ ...mockDailyStats })
-    const warnings = ref([...mockWarnings])
+    const dailyStats = ref({ totalGeneration: 0, avgPower: 0, maxPower: 0, runTime: 0, avgEfficiency: 0 })
+    const warnings = ref([])
+    const faultDistribution = ref([])
+    const dailyFaults = ref({ dates: [], counts: [] })
+    const powerComparison = ref({ hours: [], actual: [], predicted: [] })
+    const loading = ref(false)
 
     // 图表引用
     const faultPieChart = ref(null)
@@ -304,7 +222,7 @@ export default {
       const warning = turbines.value.filter(t => t.status === 'warning').length
       const stopped = turbines.value.filter(t => t.status === 'stopped').length
       const totalPower = turbines.value.reduce((sum, t) => sum + t.power, 0)
-      const avgEfficiency = turbines.value.reduce((sum, t) => sum + t.efficiency, 0) / turbines.value.length
+      const avgEfficiency = turbines.value.length > 0 ? turbines.value.reduce((sum, t) => sum + t.efficiency, 0) / turbines.value.length : 0
       
       return {
         totalPower,
@@ -315,6 +233,79 @@ export default {
       }
     })
 
+    // 获取风机列表
+    const fetchTurbines = async () => {
+      try {
+        loading.value = true
+        const params = filterStatus.value ? { status: filterStatus.value } : {}
+        const response = await apiClient.get('/turbines', { params })
+        turbines.value = response.data
+      } catch (error) {
+        console.error('获取风机列表失败:', error)
+        ElMessage.error('获取风机列表失败，请检查后端服务是否正常运行')
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // 获取当日发电统计数据
+    const fetchDailyStats = async () => {
+      try {
+        const response = await apiClient.get('/stats/daily')
+        dailyStats.value = response.data
+      } catch (error) {
+        console.error('获取当日发电统计数据失败:', error)
+        ElMessage.error('获取当日发电统计数据失败')
+      }
+    }
+
+    // 获取警告信息
+    const fetchWarnings = async () => {
+      try {
+        const response = await apiClient.get('/warnings')
+        warnings.value = response.data
+      } catch (error) {
+        console.error('获取警告信息失败:', error)
+        ElMessage.error('获取警告信息失败')
+      }
+    }
+
+    // 获取故障分布数据
+    const fetchFaultDistribution = async () => {
+      try {
+        const response = await apiClient.get('/faults/distribution')
+        faultDistribution.value = response.data
+        updateFaultPieChart()
+      } catch (error) {
+        console.error('获取故障分布数据失败:', error)
+        ElMessage.error('获取故障分布数据失败')
+      }
+    }
+
+    // 获取每日故障数数据
+    const fetchDailyFaults = async () => {
+      try {
+        const response = await apiClient.get('/faults/daily')
+        dailyFaults.value = response.data
+        updateFaultLineChart()
+      } catch (error) {
+        console.error('获取每日故障数数据失败:', error)
+        ElMessage.error('获取每日故障数数据失败')
+      }
+    }
+
+    // 获取发电量对比数据
+    const fetchPowerComparison = async () => {
+      try {
+        const response = await apiClient.get('/power/comparison')
+        powerComparison.value = response.data
+        updatePowerLineChart()
+      } catch (error) {
+        console.error('获取发电量对比数据失败:', error)
+        ElMessage.error('获取发电量对比数据失败')
+      }
+    }
+
     // 方法
     const formatPower = (power) => {
       if (power >= 1000) {
@@ -323,38 +314,24 @@ export default {
       return power.toFixed(0) + ' kW'
     }
 
-    const refreshData = () => {
-      // 模拟数据更新
-      turbines.value.forEach(turbine => {
-        if (turbine.status === 'running') {
-          turbine.power += Math.random() * 100 - 50
-          turbine.windSpeed += Math.random() * 2 - 1
-          turbine.temperature += Math.random() * 0.5 - 0.25
-          turbine.vibration += Math.random() * 0.2 - 0.1
-          
-          // 确保值在合理范围内
-          turbine.power = Math.max(0, Math.min(turbine.power, 3000))
-          turbine.windSpeed = Math.max(0, Math.min(turbine.windSpeed, 25))
-          turbine.temperature = Math.max(-10, Math.min(turbine.temperature, 60))
-          turbine.vibration = Math.max(0, Math.min(turbine.vibration, 10))
-          
-          // 更新效率
-          turbine.efficiency = 85 + Math.random() * 15
-        }
-      })
-
-      // 更新当日发电数据
-      dailyStats.value.totalGeneration += Math.random() * 1000 - 500
-      dailyStats.value.avgPower += Math.random() * 100 - 50
-      dailyStats.value.maxPower = Math.max(dailyStats.value.maxPower, dailyStats.value.avgPower)
-      dailyStats.value.avgEfficiency += Math.random() * 2 - 1
-
-      // 重新渲染图表
-      updateFaultPieChart()
-      updateFaultLineChart()
-      updatePowerLineChart()
-      
-      ElMessage.success('数据已刷新')
+    const refreshData = async () => {
+      try {
+        loading.value = true
+        await Promise.all([
+          fetchTurbines(),
+          fetchDailyStats(),
+          fetchWarnings(),
+          fetchFaultDistribution(),
+          fetchDailyFaults(),
+          fetchPowerComparison()
+        ])
+        ElMessage.success('数据已刷新')
+      } catch (error) {
+        console.error('刷新数据失败:', error)
+        ElMessage.error('刷新数据失败')
+      } finally {
+        loading.value = false
+      }
     }
 
     // 初始化故障饼状图
@@ -383,7 +360,7 @@ export default {
         legend: {
           orient: 'vertical',
           left: 10,
-          data: mockFaultDistribution.map(item => item.name),
+          data: faultDistribution.value.map(item => item.name),
           textStyle: {
             color: 'rgba(255, 255, 255, 0.8)'
           },
@@ -423,7 +400,7 @@ export default {
             labelLine: {
               show: false
             },
-            data: mockFaultDistribution
+            data: faultDistribution.value
           }
         ]
       }
@@ -463,7 +440,7 @@ export default {
         xAxis: {
           type: 'category',
           boundaryGap: false,
-          data: mockDailyFaults.dates,
+          data: dailyFaults.value.dates || [],
           axisLine: {
             lineStyle: {
               color: 'rgba(255, 255, 255, 0.3)'
@@ -499,7 +476,7 @@ export default {
         series: [
           {
             name: '故障数',
-            data: mockDailyFaults.counts,
+            data: dailyFaults.value.counts || [],
             type: 'line',
             smooth: true,
             lineStyle: {
@@ -567,7 +544,7 @@ export default {
         xAxis: {
           type: 'category',
           boundaryGap: false,
-          data: mockPowerComparison.hours,
+          data: powerComparison.value.hours || [],
           name: '时间 (时)',
           nameTextStyle: {
             color: 'rgba(255, 255, 255, 0.8)'
@@ -607,7 +584,7 @@ export default {
         series: [
           {
             name: '实测发电量',
-            data: mockPowerComparison.actual,
+            data: powerComparison.value.actual || [],
             type: 'line',
             smooth: true,
             lineStyle: {
@@ -626,7 +603,7 @@ export default {
           },
           {
             name: '预测发电量',
-            data: mockPowerComparison.predicted,
+            data: powerComparison.value.predicted || [],
             type: 'line',
             smooth: true,
             lineStyle: {
@@ -818,16 +795,14 @@ export default {
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
 
+      // 初始加载数据
+      refreshData()
+
       // 自动更新数据
       updateInterval = setInterval(() => {
         if (isUnmounted) return
-        turbines.value.forEach(turbine => {
-          if (turbine.status === 'running') {
-            turbine.power += Math.random() * 50 - 25
-            turbine.efficiency = 85 + Math.random() * 15
-          }
-        })
-      }, 10000)
+        refreshData()
+      }, 30000) // 每30秒自动刷新一次数据
     })
 
     onUnmounted(() => {
