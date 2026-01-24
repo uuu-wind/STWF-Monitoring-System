@@ -5,7 +5,10 @@
       <el-card shadow="hover">
         <div class="toolbar-content">
           <div class="toolbar-left">
-            <h3>风电智能监控平台</h3>
+            <div class="logo">
+              <el-icon size="24"><WindPower /></el-icon>
+              <span class="logo-text">风电智能监控平台</span>
+            </div>
             <div class="nav-menu">
               <router-link to="/" class="nav-item">总体预览</router-link>
               <router-link to="/local-analysis" class="nav-item active">局部分析</router-link>
@@ -194,48 +197,7 @@
               </div>
             </template>
             <div class="alert-stats">
-              <div class="alert-item">
-                <el-progress
-                  type="circle"
-                  :percentage="alertStats.critical"
-                  :color="'#F56C6C'"
-                  :stroke-width="8"
-                  :width="80"
-                >
-                  <div class="progress-content">
-                    <span class="progress-label">严重</span>
-                    <span class="progress-value">{{ alertStats.critical }}</span>
-                  </div>
-                </el-progress>
-              </div>
-              <div class="alert-item">
-                <el-progress
-                  type="circle"
-                  :percentage="alertStats.major"
-                  :color="'#E6A23C'"
-                  :stroke-width="8"
-                  :width="80"
-                >
-                  <div class="progress-content">
-                    <span class="progress-label">主要</span>
-                    <span class="progress-value">{{ alertStats.major }}</span>
-                  </div>
-                </el-progress>
-              </div>
-              <div class="alert-item">
-                <el-progress
-                  type="circle"
-                  :percentage="alertStats.minor"
-                  :color="'#409EFF'"
-                  :stroke-width="8"
-                  :width="80"
-                >
-                  <div class="progress-content">
-                    <span class="progress-label">次要</span>
-                    <span class="progress-value">{{ alertStats.minor }}</span>
-                  </div>
-                </el-progress>
-              </div>
+              <div ref="alertChart" class="chart"></div>
             </div>
           </el-card>
         </div>
@@ -250,6 +212,7 @@ import * as echarts from 'echarts'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
+import { WindPower } from '@element-plus/icons-vue'
 
 // 模拟风机数据
 const mockTurbineInfo = {
@@ -313,10 +276,12 @@ export default {
 
     // 图表引用
     const powerChart = ref(null)
+    const alertChart = ref(null)
     const threeJsContainer = ref(null)
 
     // 图表实例
     let powerChartInstance = null
+    let alertChartInstance = null
 
     // Three.js相关
     let scene = null
@@ -326,6 +291,7 @@ export default {
     let animationId = null
     let fanGroup = null // 用于存储风扇模型的父物体，控制旋转
     let fanGroup2 = null
+    let isUnmounted = false
 
     // 格式化功率数据
     const formatPower = (power) => {
@@ -352,6 +318,7 @@ export default {
       
       // 更新图表
       updatePowerChart()
+      updateAlertChart()
       
       // 可以添加刷新成功的提示
     }
@@ -361,6 +328,14 @@ export default {
       if (powerChart.value) {
         powerChartInstance = echarts.init(powerChart.value)
         updatePowerChart()
+      }
+    }
+
+    // 初始化告警统计柱状图
+    const initAlertChart = () => {
+      if (alertChart.value) {
+        alertChartInstance = echarts.init(alertChart.value)
+        updateAlertChart()
       }
     }
 
@@ -460,9 +435,90 @@ export default {
       powerChartInstance.setOption(option)
     }
 
+    // 更新告警统计柱状图
+    const updateAlertChart = () => {
+      if (!alertChartInstance) return
+      
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          textStyle: {
+            color: 'white'
+          },
+          backgroundColor: 'rgba(39, 64, 139, 0.8)',
+          borderColor: 'rgba(79, 195, 247, 0.5)',
+          borderWidth: 1
+        },
+        grid: {
+          left: '10%',
+          right: '10%',
+          bottom: '15%',
+          top: '10%',
+          containLabel: true
+        },
+        xAxis: {
+          type: 'category',
+          data: ['严重', '主要', '次要'],
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.5)'
+            }
+          },
+          axisLabel: {
+            color: 'rgba(255, 255, 255, 0.8)'
+          }
+        },
+        yAxis: {
+          type: 'value',
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.5)'
+            }
+          },
+          axisLabel: {
+            color: 'rgba(255, 255, 255, 0.8)'
+          },
+          splitLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.1)'
+            }
+          }
+        },
+        series: [
+          {
+            name: '告警数量',
+            type: 'bar',
+            barWidth: '40%',
+            data: [
+              {
+                value: alertStats.value.critical,
+                itemStyle: {
+                  color: '#F56C6C'
+                }
+              },
+              {
+                value: alertStats.value.major,
+                itemStyle: {
+                  color: '#E6A23C'
+                }
+              },
+              {
+                value: alertStats.value.minor,
+                itemStyle: {
+                  color: '#409EFF'
+                }
+              }
+            ]
+          }
+        ]
+      }
+      
+      alertChartInstance.setOption(option)
+    }
+
     // 初始化Three.js场景
     const initThreeJs = () => {
-      if (!threeJsContainer.value) return
+      if (!threeJsContainer.value || isUnmounted) return
 
       // 创建场景
       scene = new THREE.Scene()
@@ -562,6 +618,7 @@ export default {
 
       // 动画循环
       const animate = () => {
+        if (isUnmounted) return
         animationId = requestAnimationFrame(animate)
         
         // 父物体绕Z轴自转（负值表示顺时针方向）
@@ -575,13 +632,16 @@ export default {
       animate()
 
       // 窗口大小调整
-      const handleResize = () => {
-        if (!threeJsContainer.value) return
+      const handleThreeResize = () => {
+        if (!threeJsContainer.value || isUnmounted) return
         camera.aspect = threeJsContainer.value.clientWidth / threeJsContainer.value.clientHeight
         camera.updateProjectionMatrix()
         renderer.setSize(threeJsContainer.value.clientWidth, threeJsContainer.value.clientHeight)
       }
-      window.addEventListener('resize', handleResize)
+      window.addEventListener('resize', handleThreeResize)
+      
+      // 存储事件监听器引用，以便后续移除
+      window.handleLocalThreeResize = handleThreeResize
     }
 
     // 清理Three.js资源
@@ -598,34 +658,63 @@ export default {
           threeJsContainer.value.removeChild(renderer.domElement)
         }
       }
-      window.removeEventListener('resize', () => {})
-    }
-
-    // 处理窗口大小变化
-    const handleResize = () => {
-      powerChartInstance?.resize()
+      if (window.handleLocalThreeResize) {
+        window.removeEventListener('resize', window.handleLocalThreeResize)
+        delete window.handleLocalThreeResize
+      }
+      // 清理场景中的所有对象
+      if (scene) {
+        while(scene.children.length > 0) {
+          const child = scene.children[0]
+          if (child.geometry) {
+            child.geometry.dispose()
+          }
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+          scene.remove(child)
+        }
+      }
+      // 清理加载的模型引用
+      fanGroup = null
+      fanGroup2 = null
     }
 
     onMounted(() => {
+      isUnmounted = false
       // 等待DOM渲染完成
       nextTick(() => {
+        if (isUnmounted) return
         initPowerChart()
+        initAlertChart()
         initThreeJs()
       })
 
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
-
-      onUnmounted(() => {
-        window.removeEventListener('resize', handleResize)
-        
-        // 销毁图表实例
-        powerChartInstance?.dispose()
-
-        // 清理Three.js资源
-        cleanupThreeJs()
-      })
     })
+
+    onUnmounted(() => {
+      isUnmounted = true
+      window.removeEventListener('resize', handleResize)
+      
+      // 销毁图表实例
+      powerChartInstance?.dispose()
+      alertChartInstance?.dispose()
+
+      // 清理Three.js资源
+      cleanupThreeJs()
+    })
+
+    // 处理窗口大小变化
+    const handleResize = () => {
+      powerChartInstance?.resize()
+      alertChartInstance?.resize()
+    }
 
     return {
       turbineInfo,
@@ -634,6 +723,7 @@ export default {
       windData,
       alertStats,
       powerChart,
+      alertChart,
       threeJsContainer,
       formatPower,
       refreshData
@@ -648,7 +738,7 @@ export default {
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 0;
+  padding: 10px;
   overflow: hidden;
   background: rgba(39, 64, 139, 0.8);
   backdrop-filter: blur(10px);
@@ -659,8 +749,8 @@ export default {
 /* 工具栏 */
 .toolbar {
   height: 60px;
-  padding: 0 20px;
-  margin-bottom: 20px;
+  padding: 0 10px;
+  margin-bottom: 15px;
 }
 
 .toolbar .el-card {
@@ -673,18 +763,25 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 15px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
 }
 
-.toolbar-left h3 {
-  margin: 0;
-  font-size: calc(16px + 0.3vw);
+/* Logo样式 */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.logo-text {
+  font-size: 16px;
   font-weight: 600;
   color: white;
   text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
@@ -693,15 +790,15 @@ export default {
 /* 导航菜单 */
 .nav-menu {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .nav-item {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
-  font-size: calc(12px + 0.2vw);
+  font-size: 12px;
   font-weight: 500;
   transition: all 0.3s ease;
   background: rgba(255, 255, 255, 0.1);
@@ -724,7 +821,7 @@ export default {
 .toolbar-right {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 10px;
 }
 
 /* 主要内容区域 */
@@ -733,8 +830,8 @@ export default {
   width: 100%;
   flex: 1;
   display: flex;
-  gap: 20px;
-  padding: 0 20px 20px 20px;
+  gap: 15px;
+  padding: 0 10px 10px 10px;
   overflow: hidden;
 }
 
@@ -744,13 +841,13 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
 }
 
-/* 左侧上部分：风机名称和机械参数（高度25%） */
+/* 左侧上部分：风机名称和机械参数 */
 .left-top-section {
-  height: 25%;
-  min-height: 200px;
+  flex: 1;
+  min-height: 180px;
 }
 
 .left-top-section .el-card {
@@ -771,51 +868,51 @@ export default {
 
 .turbine-name {
   margin: 0 0 5px 0;
-  font-size: calc(18px + 0.5vw);
+  font-size: 16px;
   font-weight: 600;
   color: white;
   text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
 }
 
 .turbine-location {
-  margin: 0 0 15px 0;
-  font-size: calc(12px + 0.2vw);
+  margin: 0 0 10px 0;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
 }
 
 .mechanical-params {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 .param-item {
   text-align: center;
-  padding: 8px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
 }
 
 .param-label {
   display: block;
-  font-size: calc(10px + 0.1vw);
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
 .param-value {
   display: block;
-  font-size: calc(12px + 0.2vw);
+  font-size: 11px;
   font-weight: 600;
   color: white;
 }
 
-/* 左侧中部分：发电量和功率数据（高度25%） */
+/* 左侧中部分：发电量和功率数据 */
 .left-middle-section {
-  height: 25%;
-  min-height: 200px;
+  flex: 1;
+  min-height: 180px;
 }
 
 .left-middle-section .el-card {
@@ -835,37 +932,37 @@ export default {
 .data-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
+  gap: 10px;
   width: 100%;
-  padding: 0 15px;
+  padding: 0 10px;
 }
 
 .data-item {
   text-align: center;
-  padding: 10px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
 }
 
 .data-label {
   display: block;
-  font-size: calc(12px + 0.2vw);
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 5px;
+  margin-bottom: 3px;
 }
 
 .data-value {
   display: block;
-  font-size: calc(18px + 0.4vw);
+  font-size: 14px;
   font-weight: 600;
   color: #4FC3F7;
   text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
 }
 
-/* 左侧下部分：风机系统信息（高度22%） */
+/* 左侧下部分：风机系统信息 */
 .left-bottom-section {
-  height: 22%;
-  min-height: 180px;
+  flex: 1;
+  min-height: 160px;
 }
 
 .left-bottom-section .el-card {
@@ -885,27 +982,27 @@ export default {
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 0 10px;
+  padding: 0 8px;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px;
+  padding: 6px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 6px;
 }
 
 .info-label {
-  font-size: calc(11px + 0.1vw);
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.8);
 }
 
 .info-value {
-  font-size: calc(11px + 0.1vw);
+  font-size: 10px;
   font-weight: 600;
   color: white;
 }
@@ -933,10 +1030,10 @@ export default {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
 }
 
-/* 右侧图表项（各占1/3高度） */
+/* 右侧图表项 */
 .chart-item {
   flex: 1;
   min-height: 0;
@@ -951,7 +1048,7 @@ export default {
 
 .chart-container {
   flex: 1;
-  padding: 10px 0;
+  padding: 5px 0;
 }
 
 .chart {
@@ -969,11 +1066,11 @@ export default {
 
 .compass-circle {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 150px;
+  height: 150px;
   border-radius: 50%;
   background: rgba(39, 64, 139, 0.8);
-  border: 3px solid rgba(79, 195, 247, 0.8);
+  border: 2px solid rgba(79, 195, 247, 0.8);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -987,16 +1084,16 @@ export default {
 
 .compass-direction {
   position: absolute;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: white;
   text-shadow: 0 0 5px rgba(79, 195, 247, 0.8);
 }
 
-.compass-direction:nth-child(1) { top: 10px; left: 50%; transform: translateX(-50%); }
-.compass-direction:nth-child(2) { top: 50%; right: 10px; transform: translateY(-50%); }
-.compass-direction:nth-child(3) { bottom: 10px; left: 50%; transform: translateX(-50%); }
-.compass-direction:nth-child(4) { top: 50%; left: 10px; transform: translateY(-50%); }
+.compass-direction:nth-child(1) { top: 8px; left: 50%; transform: translateX(-50%); }
+.compass-direction:nth-child(2) { top: 50%; right: 8px; transform: translateY(-50%); }
+.compass-direction:nth-child(3) { bottom: 8px; left: 50%; transform: translateX(-50%); }
+.compass-direction:nth-child(4) { top: 50%; left: 8px; transform: translateY(-50%); }
 
 .wind-indicator {
   position: absolute;
@@ -1010,17 +1107,17 @@ export default {
 .wind-arrow {
   width: 0;
   height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 80px solid #4FC3F7;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 60px solid #4FC3F7;
   filter: drop-shadow(0 0 5px rgba(79, 195, 247, 0.8));
-  transform-origin: 50% 80px;
+  transform-origin: 50% 65px;
 }
 
 .wind-speed {
   position: absolute;
-  bottom: 25px;
-  font-size: 24px;
+  bottom: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: white;
   text-shadow: 0 0 5px rgba(79, 195, 247, 0.8);
@@ -1033,32 +1130,7 @@ export default {
   flex-direction: column;
   justify-content: space-around;
   align-items: center;
-  padding: 10px 0;
-}
-
-.alert-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.progress-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.progress-label {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 3px;
-}
-
-.progress-value {
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
+  padding: 5px 0;
 }
 
 /* 卡片头部样式 */
@@ -1070,7 +1142,31 @@ export default {
 
 .card-header span {
   font-weight: 600;
-  font-size: calc(14px + 0.2vw);
+  font-size: 12px;
+  color: white;
+}
+
+/* 故障分析区域 */
+.fault-analysis-section {
+  width: 55%;
+  height: 33.3%;
+  margin: 15px 10px 10px 25%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.fault-analysis-section .el-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+}
+
+.fault-analysis-content {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
   color: white;
 }
 
@@ -1094,6 +1190,11 @@ export default {
   .left-bottom-section {
     height: auto;
     min-height: 200px;
+  }
+  
+  .fault-analysis-section {
+    width: 100%;
+    margin-left: 10px;
   }
 }
 

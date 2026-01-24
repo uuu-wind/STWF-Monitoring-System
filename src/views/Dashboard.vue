@@ -5,70 +5,119 @@
       <div ref="threeJsContainer" class="three-js-container"></div>
     </div>
 
+    <!-- 工具栏 -->
+    <div class="toolbar">
+      <el-card shadow="hover">
+        <div class="toolbar-content">
+          <div class="toolbar-left">
+            <div class="logo">
+              <el-icon size="24"><WindPower /></el-icon>
+              <span class="logo-text">风电智能监控平台</span>
+            </div>
+            <div class="nav-menu">
+              <router-link to="/" class="nav-item active">总体预览</router-link>
+              <router-link to="/local-analysis" class="nav-item">局部分析</router-link>
+            </div>
+          </div>
+          <div class="toolbar-right">
+            <el-button type="primary" :icon="Refresh" @click="refreshData">
+              刷新数据
+            </el-button>
+            <el-button :icon="Setting">
+              系统设置
+            </el-button>
+            <el-select v-model="filterStatus" placeholder="筛选状态" clearable>
+              <el-option label="全部" value="" />
+              <el-option label="运行中" value="running" />
+              <el-option label="告警中" value="warning" />
+              <el-option label="已停机" value="stopped" />
+              <el-option label="维护中" value="maintenance" />
+            </el-select>
+          </div>
+        </div>
+      </el-card>
+    </div>
+
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 左侧区域（占75%宽度） -->
-      <div class="left-content">
-        <!-- 工具栏（高度占5%） -->
-        <div class="toolbar">
-          <el-card shadow="hover">
-            <div class="toolbar-content">
-              <div class="toolbar-left">
-                <h3>风电智能监控平台</h3>
-                <div class="nav-menu">
-                  <router-link to="/" class="nav-item active">总体预览</router-link>
-                  <router-link to="/local-analysis" class="nav-item">局部分析</router-link>
+      <!-- 上部分：数据和右侧图表 -->
+      <div class="top-main-content">
+        <!-- 左侧数据区域 -->
+        <div class="left-data-content">
+          <!-- 数据部分 -->
+          <div class="data-section">
+            <el-card shadow="hover">
+              <div class="data-content">
+                <div class="data-item">
+                  <div class="data-label">当日总发电量</div>
+                  <div class="data-value">{{ formatPower(dailyStats.totalGeneration) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均发电功率</div>
+                  <div class="data-value">{{ formatPower(dailyStats.avgPower) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">运行时长</div>
+                  <div class="data-value">{{ dailyStats.runTime }} 小时</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均效率</div>
+                  <div class="data-value">{{ dailyStats.avgEfficiency }}%</div>
                 </div>
               </div>
-              <div class="toolbar-right">
-                <el-button type="primary" :icon="Refresh" @click="refreshData">
-                  刷新数据
-                </el-button>
-                <el-button :icon="Setting">
-                  系统设置
-                </el-button>
-                <el-select v-model="filterStatus" placeholder="筛选状态" clearable>
-                  <el-option label="全部" value="" />
-                  <el-option label="运行中" value="running" />
-                  <el-option label="告警中" value="warning" />
-                  <el-option label="已停机" value="stopped" />
-                  <el-option label="维护中" value="maintenance" />
-                </el-select>
-              </div>
-            </div>
-          </el-card>
+            </el-card>
+          </div>
         </div>
 
-        <!-- 数据部分（高度和宽度各占13%） -->
-        <div class="data-section">
-          <el-card shadow="hover">
-            <div class="data-content">
-              <div class="data-item">
-                <div class="data-label">当日总发电量</div>
-                <div class="data-value">{{ formatPower(dailyStats.totalGeneration) }}</div>
+        <!-- 右侧区域（占25%宽度） -->
+        <div class="right-content">
+          <!-- 上部分：故障饼状图 -->
+          <div class="chart-item top-chart">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>故障分布</span>
+                </div>
+              </template>
+              <div class="chart-container">
+                <div ref="faultPieChart" class="chart"></div>
               </div>
-              <div class="data-item">
-                <div class="data-label">平均发电功率</div>
-                <div class="data-value">{{ formatPower(dailyStats.avgPower) }}</div>
-              </div>
-              <div class="data-item">
-                <div class="data-label">运行时长</div>
-                <div class="data-value">{{ dailyStats.runTime }} 小时</div>
-              </div>
-              <div class="data-item">
-                <div class="data-label">平均效率</div>
-                <div class="data-value">{{ dailyStats.avgEfficiency }}%</div>
-              </div>
-            </div>
-          </el-card>
-        </div>
+            </el-card>
+          </div>
 
-        <!-- 预留区域 -->
-        <div class="reserved-area">
-          <!-- 可用于未来扩展 -->
-        </div>
+          <!-- 中部分：总故障数折线图 -->
+          <div class="chart-item middle-chart">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>每日总故障数</span>
+                </div>
+              </template>
+              <div class="chart-container">
+                <div ref="faultLineChart" class="chart"></div>
+              </div>
+            </el-card>
+          </div>
 
-        <!-- 警告信息（高度占15%） -->
+          <!-- 下部分：当日发电量折线图 -->
+          <div class="chart-item bottom-chart">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>当日发电量对比</span>
+                </div>
+              </template>
+              <div class="chart-container">
+                <div ref="powerLineChart" class="chart"></div>
+              </div>
+            </el-card>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部区域：警告信息 -->
+      <div class="bottom-content">
+        <!-- 警告信息 -->
         <div class="warnings-section">
           <el-card shadow="hover">
             <template #header>
@@ -92,51 +141,6 @@
           </el-card>
         </div>
       </div>
-
-      <!-- 右侧区域（占25%宽度） -->
-      <div class="right-content">
-        <!-- 上部分：故障饼状图（占1/3高度） -->
-        <div class="chart-item top-chart">
-          <el-card shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <span>故障分布</span>
-              </div>
-            </template>
-            <div class="chart-container">
-              <div ref="faultPieChart" class="chart"></div>
-            </div>
-          </el-card>
-        </div>
-
-        <!-- 中部分：总故障数折线图（占1/3高度） -->
-        <div class="chart-item middle-chart">
-          <el-card shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <span>每日总故障数</span>
-              </div>
-            </template>
-            <div class="chart-container">
-              <div ref="faultLineChart" class="chart"></div>
-            </div>
-          </el-card>
-        </div>
-
-        <!-- 下部分：当日发电量折线图（占1/3高度） -->
-        <div class="chart-item bottom-chart">
-          <el-card shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <span>当日发电量对比</span>
-              </div>
-            </template>
-            <div class="chart-container">
-              <div ref="powerLineChart" class="chart"></div>
-            </div>
-          </el-card>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -153,12 +157,14 @@ import {
   TrendCharts,
   Monitor,
   Warning,
-  Location
+  Location,
+  WindPower
 } from '@element-plus/icons-vue'
 
 // 导入Three.js库
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
 
 // 模拟风机数据
 const mockTurbines = [
@@ -653,7 +659,7 @@ export default {
 
     // 初始化Three.js场景
     const initThreeJs = () => {
-      if (!threeJsContainer.value) return
+      if (!threeJsContainer.value || isUnmounted) return
 
       // 创建场景
       scene = new THREE.Scene()
@@ -692,8 +698,53 @@ export default {
       controls.minDistance = 2
       controls.maxDistance = 20
 
+      // 加载STL模型
+      const loader = new STLLoader()
+      loader.load(
+        '/src/assets/fans/总装配.stl',
+        (geometry) => {
+          if (isUnmounted) return
+          // 创建材质
+          const material = new THREE.MeshStandardMaterial({ 
+            color: 0xFFFFFF, 
+            roughness: 0.4, 
+            metalness: 0.3 
+          })
+          
+          // 创建网格
+          const mesh = new THREE.Mesh(geometry, material)
+          
+          // 调整模型位置和缩放
+          mesh.position.set(-10.1, 0, -10.5)
+          mesh.scale.set(0.002, 0.002, 0.002) // 根据模型大小调整缩放
+          
+          // 添加到场景
+          scene.add(mesh)
+          
+          // 调整相机位置以更好地查看模型
+          camera.position.z = 5
+          camera.position.x = -9
+          camera.position.y = 3.5
+        },
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total * 100) + '% loaded')
+        },
+        (error) => {
+          console.error('Error loading STL file:', error)
+        }
+      )
+
+      // 添加光源
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+      scene.add(ambientLight)
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+      directionalLight.position.set(5, 10, 5)
+      scene.add(directionalLight)
+
       // 动画循环
       const animate = () => {
+        if (isUnmounted) return
         animationId = requestAnimationFrame(animate)
         controls.update()
         renderer.render(scene, camera)
@@ -702,12 +753,15 @@ export default {
 
       // 窗口大小调整
       const handleThreeResize = () => {
-        if (!threeJsContainer.value) return
+        if (!threeJsContainer.value || isUnmounted) return
         camera.aspect = threeJsContainer.value.clientWidth / threeJsContainer.value.clientHeight
         camera.updateProjectionMatrix()
         renderer.setSize(threeJsContainer.value.clientWidth, threeJsContainer.value.clientHeight)
       }
       window.addEventListener('resize', handleThreeResize)
+      
+      // 存储事件监听器引用，以便后续移除
+      window.handleThreeResize = handleThreeResize
     }
 
     // 清理Three.js资源
@@ -724,12 +778,37 @@ export default {
           threeJsContainer.value.removeChild(renderer.domElement)
         }
       }
-      window.removeEventListener('resize', () => {})
+      if (window.handleThreeResize) {
+        window.removeEventListener('resize', window.handleThreeResize)
+        delete window.handleThreeResize
+      }
+      // 清理场景中的所有对象
+      if (scene) {
+        while(scene.children.length > 0) {
+          const child = scene.children[0]
+          if (child.geometry) {
+            child.geometry.dispose()
+          }
+          if (child.material) {
+            if (Array.isArray(child.material)) {
+              child.material.forEach(material => material.dispose())
+            } else {
+              child.material.dispose()
+            }
+          }
+          scene.remove(child)
+        }
+      }
     }
 
+    let updateInterval = null
+    let isUnmounted = false
+
     onMounted(() => {
+      isUnmounted = false
       // 等待DOM渲染完成
       nextTick(() => {
+        if (isUnmounted) return
         initFaultPieChart()
         initFaultLineChart()
         initPowerLineChart()
@@ -740,7 +819,8 @@ export default {
       window.addEventListener('resize', handleResize)
 
       // 自动更新数据
-      const updateInterval = setInterval(() => {
+      updateInterval = setInterval(() => {
+        if (isUnmounted) return
         turbines.value.forEach(turbine => {
           if (turbine.status === 'running') {
             turbine.power += Math.random() * 50 - 25
@@ -748,19 +828,22 @@ export default {
           }
         })
       }, 10000)
+    })
 
-      onUnmounted(() => {
+    onUnmounted(() => {
+      isUnmounted = true
+      if (updateInterval) {
         clearInterval(updateInterval)
-        window.removeEventListener('resize', handleResize)
-        
-        // 销毁图表实例
-        faultPieChartInstance?.dispose()
-        faultLineChartInstance?.dispose()
-        powerLineChartInstance?.dispose()
+      }
+      window.removeEventListener('resize', handleResize)
+      
+      // 销毁图表实例
+      faultPieChartInstance?.dispose()
+      faultLineChartInstance?.dispose()
+      powerLineChartInstance?.dispose()
 
-        // 清理Three.js资源
-        cleanupThreeJs()
-      })
+      // 清理Three.js资源
+      cleanupThreeJs()
     })
 
     return {
@@ -788,8 +871,12 @@ export default {
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 0;
+  padding: 10px;
   overflow: hidden;
+  background: rgba(39, 64, 139, 0.8);
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
 }
 
 /* 背景风电厂分布图 */
@@ -845,30 +932,13 @@ export default {
   text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
 }
 
-/* 主要内容区域 */
-.main-content {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  gap: 20px;
-  padding: 20px;
-  z-index: 2;
-}
-
-/* 左侧内容区域（占75%宽度） */
-.left-content {
-  width: 75%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* 工具栏（高度占5%） */
+/* 工具栏 */
 .toolbar {
-  height: 5%;
-  min-height: 50px;
+  width: 100%;
+  height: 60px;
+  padding: 0 10px;
+  margin-bottom: 15px;
+  z-index: 3;
 }
 
 .toolbar .el-card {
@@ -881,34 +951,42 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 15px;
 }
 
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 30px;
+  gap: 20px;
 }
 
-.toolbar-left h3 {
-  margin: 0;
-  font-size: calc(16px + 0.3vw);
+/* Logo样式 */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: white;
+}
+
+.logo-text {
+  font-size: 16px;
   font-weight: 600;
   color: white;
+  text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
 }
 
 /* 导航菜单 */
 .nav-menu {
   display: flex;
-  gap: 10px;
+  gap: 8px;
 }
 
 .nav-item {
-  padding: 8px 16px;
+  padding: 6px 12px;
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.8);
   text-decoration: none;
-  font-size: calc(12px + 0.2vw);
+  font-size: 12px;
   font-weight: 500;
   transition: all 0.3s ease;
   background: rgba(255, 255, 255, 0.1);
@@ -931,15 +1009,41 @@ export default {
 .toolbar-right {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+/* 主要内容区域 */
+.main-content {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 0 10px 10px 10px;
+  overflow: hidden;
+  z-index: 2;
+}
+
+/* 上部分：数据和右侧图表 */
+.top-main-content {
+  display: flex;
+  gap: 15px;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 左侧数据区域 */
+.left-data-content {
+  width: calc(100% - 25%);
+  display: flex;
   gap: 15px;
 }
 
-/* 数据部分（高度和宽度各占13%） */
+/* 数据部分 */
 .data-section {
-  width: 13%;
-  height: 13%;
-  min-width: 200px;
-  min-height: 150px;
+  width: 15%;
+  height: 50%;
 }
 
 .data-section .el-card {
@@ -953,7 +1057,8 @@ export default {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
+  padding: 10px;
 }
 
 .data-item {
@@ -962,27 +1067,28 @@ export default {
 }
 
 .data-label {
-  font-size: calc(12px + 0.2vw);
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .data-value {
-  font-size: calc(18px + 0.4vw);
+  font-size: 14px;
   font-weight: 600;
-  color: white;
+  color: #4FC3F7;
+  text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
 }
 
-/* 预留区域 */
-.reserved-area {
-  flex: 1;
-  min-height: 0;
+/* 底部区域：警告信息 */
+.bottom-content {
+  width: 74%;
+  height: 30%;
 }
 
-/* 警告信息（高度占20%） */
+/* 警告信息 */
 .warnings-section {
-  height: 20%;
-  min-height: 150px;
+  width: 100%;
+  height: 100%;
 }
 
 .warnings-section .el-card {
@@ -1022,7 +1128,7 @@ export default {
 
 .warning-item {
   border-radius: 8px;
-  font-size: calc(10px + 0.1vw);
+  font-size: 12px;
   padding: 8px 16px;
   margin-bottom: 5px;
   height: auto;
@@ -1032,15 +1138,15 @@ export default {
 /* 右侧内容区域（占25%宽度） */
 .right-content {
   width: 25%;
-  height: 100%;
+  height: 147%;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 15px;
 }
 
-/* 图表项（各占1/3高度） */
+/* 图表项 */
 .chart-item {
-  flex: 1;
+  height: calc((100% - 30px) / 3);
   min-height: 0;
 }
 
@@ -1070,7 +1176,7 @@ export default {
 
 .card-header span {
   font-weight: 600;
-  font-size: calc(14px + 0.2vw);
+  font-size: 14px;
   color: white;
 }
 
@@ -1085,14 +1191,30 @@ export default {
     width: 100%;
   }
   
+  .left-content {
+    flex-direction: column;
+  }
+  
   .data-section {
-    width: 30%;
+    width: 100%;
+    height: auto;
+  }
+  
+  .data-content {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  
+  .data-item {
+    flex: 1 1 calc(25% - 20px);
+    min-width: 150px;
   }
 }
 
 @media (max-width: 768px) {
-  .main-content {
-    padding: 10px;
+  .toolbar {
+    padding: 0 5px;
   }
   
   .toolbar-content {
@@ -1101,13 +1223,24 @@ export default {
     padding: 10px;
   }
   
+  .toolbar-left {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
   .toolbar-right {
     flex-wrap: wrap;
     justify-content: center;
+    gap: 10px;
   }
   
-  .data-section {
-    width: 50%;
+  .main-content {
+    padding: 10px 5px;
+    gap: 10px;
+  }
+  
+  .data-item {
+    flex: 1 1 100%;
   }
 }
 </style>
