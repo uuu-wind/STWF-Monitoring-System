@@ -26,12 +26,17 @@
             <el-button :icon="Setting">
               系统设置
             </el-button>
-            <el-select v-model="filterStatus" placeholder="筛选状态" clearable>
-              <el-option label="全部" value="" />
-              <el-option label="运行中" value="running" />
-              <el-option label="告警中" value="warning" />
-              <el-option label="已停机" value="stopped" />
-              <el-option label="维护中" value="maintenance" />
+            <el-select v-model="selectedTurbine" placeholder="选择风机" clearable @change="navigateToTurbine">
+              <el-option label="风机1" value="t001" />
+              <el-option label="风机2" value="t002" />
+              <el-option label="风机3" value="t003" />
+              <el-option label="风机4" value="t004" />
+              <el-option label="风机5" value="t005" />
+              <el-option label="风机6" value="t006" />
+              <el-option label="风机7" value="t007" />
+              <el-option label="风机8" value="t008" />
+              <el-option label="风机9" value="t009" />
+              <el-option label="风机10" value="t010" />
             </el-select>
           </div>
         </div>
@@ -147,6 +152,7 @@
 
 <script>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import axios from 'axios'
@@ -185,9 +191,12 @@ export default {
     TurbineCard
   },
   setup() {
+    const router = useRouter()
+    
     // 响应式数据
     const turbines = ref([])
     const filterStatus = ref('')
+    const selectedTurbine = ref('')
     const sortBy = ref('power')
     const currentPage = ref(1)
     const pageSize = ref(8)
@@ -331,6 +340,13 @@ export default {
         ElMessage.error('刷新数据失败')
       } finally {
         loading.value = false
+      }
+    }
+
+    // 跳转到风机详情页
+    const navigateToTurbine = (turbineId) => {
+      if (turbineId) {
+        router.push(`/local-analysis/${turbineId}`)
       }
     }
 
@@ -824,6 +840,7 @@ export default {
     return {
       stats,
       filterStatus,
+      selectedTurbine,
       sortBy,
       currentPage,
       pageSize,
@@ -834,7 +851,8 @@ export default {
       powerLineChart,
       threeJsContainer,
       formatPower,
-      refreshData
+      refreshData,
+      navigateToTurbine
     }
   }
 }

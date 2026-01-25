@@ -20,6 +20,11 @@ const router = createRouter({
       path: '/local-analysis',
       name: 'localAnalysis',
       component: LocalAnalysis
+    },
+    {
+      path: '/local-analysis/:turbineId',
+      name: 'turbineDetail',
+      component: LocalAnalysis
     }
   ]
 })
