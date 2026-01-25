@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from influxdb_client import InfluxDBClient, Point
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client_3 import (
+    InfluxDBClient3, InfluxDBError, Point, WritePrecision,
+    WriteOptions, write_client_options
+)
 import os
 from dotenv import load_dotenv
+import pandas
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import datetime
@@ -13,15 +16,14 @@ import random
 load_dotenv()
 
 # InfluxDB 连接配置
-INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8086")
-INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "your-token")
-INFLUXDB_ORG = os.getenv("INFLUXDB_ORG", "your-org")
+INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8181")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "apiv3_3dK1l9XS8U5woahz6rmuIxfjT_3_0StOLWQjxilRN5OT4ph_b0ZwKWj5m4Z-pQL5u18haoq5HzzNIopBo-A-yA")
 INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "windfarm")
 
 # 创建 FastAPI 应用
 app = FastAPI(
-    title="风电智能监控平台API",
-    description="基于FastAPI和InfluxDB的风电监控系统后端API",
+    title="Wind Farm Intelligent Monitoring Platform API",
+    description="Backend API for wind power monitoring system based on FastAPI and InfluxDB",
     version="1.0.0"
 )
 
@@ -34,10 +36,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+write_options = WriteOptions(batch_size=1,
+                             flush_interval=1_000,
+                             jitter_interval=0,
+                             retry_interval=5_000,
+                             max_retries=3,
+                             max_retry_delay=30_000,
+                             exponential_base=2)
+
+def success(self, data: str):
+    print(f"Write succeeded: {data}")
+
+def error(self, data: str, exception: InfluxDBError):
+    print(f"Write failed: {data}, error: {exception}")
+
+def retry(self, data: str, exception: InfluxDBError):
+    print(f"Write retrying: {data}, error: {exception}")
+
+wco = write_client_options(success_callback = success,
+                            error_callback = error,
+                            retry_callback = retry,
+                            write_options = write_options)
 # 创建 InfluxDB 客户端
-client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
-write_api = client.write_api(write_options=SYNCHRONOUS)
-query_api = client.query_api()
+client = InfluxDBClient3(host=INFLUXDB_URL, token=INFLUXDB_TOKEN, database=INFLUXDB_BUCKET, write_client_options=wco)
 
 # 数据模型
 class TurbineBase(BaseModel):
@@ -69,16 +90,15 @@ class SystemInfo(BaseModel):
     statusText: str
 
 class WindData(BaseModel):
+    turbine_id: str
     speed: float
     direction: float
 
-class AlertStats(BaseModel):
-    critical: int
-    major: int
-    minor: int
+class WarningStats(BaseModel):
+    error: int
+    warning: int
 
 class PowerTrend(BaseModel):
-    hours: List[str]
     power: List[float]
 
 class DailyStats(BaseModel):
@@ -121,8 +141,8 @@ class Turbine(TurbineBase):
 mock_turbines = [
     {
         "id": "T001",
-        "name": "北风一号",
-        "location": "内蒙古风场A区",
+        "name": "NW1",
+        "location": "IM_Zone_A",
         "status": "running",
         "power": 2500,
         "windSpeed": 12.5,
@@ -133,8 +153,8 @@ mock_turbines = [
     },
     {
         "id": "T002",
-        "name": "北风二号",
-        "location": "内蒙古风场A区",
+        "name": "NW2",
+        "location": "IM_Zone_A",
         "status": "warning",
         "power": 1800,
         "windSpeed": 15.2,
@@ -145,8 +165,8 @@ mock_turbines = [
     },
     {
         "id": "T003",
-        "name": "北风三号",
-        "location": "内蒙古风场B区",
+        "name": "NW3",
+        "location": "IM_Zone_B",
         "status": "running",
         "power": 2200,
         "windSpeed": 10.8,
@@ -157,20 +177,20 @@ mock_turbines = [
     },
     {
         "id": "T004",
-        "name": "北风四号",
-        "location": "内蒙古风场B区",
+        "name": "NW4",
+        "location": "IM_Zone_B",
         "status": "stopped",
-        "power": 0,
+        "power": 0.0,
         "windSpeed": 8.5,
-        "temperature": 24,
-        "vibration": 0,
+        "temperature": 24.0,
+        "vibration": 0.0,
         "lastMaintenance": "2026-01-01",
-        "efficiency": 0
+        "efficiency": 0.0
     },
     {
         "id": "T005",
-        "name": "北风五号",
-        "location": "内蒙古风场C区",
+        "name": "NW5",
+        "location": "IM_Zone_C",
         "status": "running",
         "power": 2000,
         "windSpeed": 9.2,
@@ -191,41 +211,41 @@ mock_daily_stats = {
 
 mock_warnings = [
     {
-        "id": "W001",
-        "title": "齿轮箱温度过高",
-        "description": "北风二号风机齿轮箱温度超过阈值，当前温度：75°C",
+        "turbine_id": "T001",
+        "title": "Gearbox Temperature Too High",
+        "description": "NW2 turbine gearbox temperature exceeds threshold, current temperature: 75°C",
         "type": "warning",
         "timestamp": "2026-01-18 14:30"
     },
     {
-        "id": "W002",
-        "title": "振动值异常",
-        "description": "北风二号风机振动值超过安全范围，当前值：4.5mm/s",
+        "turbine_id": "T002",
+        "title": "Abnormal Vibration Value",
+        "description": "NW2 turbine vibration value exceeds safe range, current value: 4.5mm/s",
         "type": "warning",
         "timestamp": "2026-01-18 14:45"
     },
     {
-        "id": "W003",
-        "title": "风速传感器故障",
-        "description": "北风五号风机风速传感器无响应，请检查",
+        "turbine_id": "T005",
+        "title": "Wind Speed Sensor Failure",
+        "description": "NW5 turbine wind speed sensor not responding, please check",
         "type": "error",
         "timestamp": "2026-01-18 15:00"
     },
     {
-        "id": "W004",
-        "title": "发电机温度偏高",
-        "description": "北风三号风机发电机温度偏高，当前温度：65°C",
+        "turbine_id": "T003",
+        "title": "Generator Temperature Too High",
+        "description": "NW3 turbine generator temperature is high, current temperature: 65°C",
         "type": "warning",
         "timestamp": "2026-01-18 15:15"
     }
 ]
 
 mock_fault_distribution = [
-    {"name": "传感器故障", "value": 25},
-    {"name": "齿轮箱故障", "value": 15},
-    {"name": "发电机故障", "value": 10},
-    {"name": "叶片故障", "value": 8},
-    {"name": "其他故障", "value": 12}
+    {"name": "Sensor_Failure", "value": 25},
+    {"name": "Gearbox_Failure", "value": 15},
+    {"name": "Generator_Failure", "value": 10},
+    {"name": "Blade_Failure", "value": 8},
+    {"name": "Other_Failures", "value": 12}
 ]
 
 mock_daily_faults = {
@@ -239,17 +259,32 @@ mock_power_comparison = {
     "predicted": [900, 800, 700, 1300, 2000, 2700, 3000, 2800, 2600, 2300, 1600, 1100]
 }
 
-mock_turbine_info = {
-    "id": "T001",
-    "name": "北风一号",
-    "location": "内蒙古风场A区",
-    "bladeLength": 55,
-    "rotorDiameter": 112,
-    "ratedPower": 2500,
-    "hubHeight": 120,
-    "bladeCount": 3,
-    "speedRange": "3-20 RPM"
-}
+mock_turbine_info = [
+    {
+        "id": "T001",
+        "name": "NW1",
+        "location": "IM_Zone_A",
+        "bladeLength": 55,
+        "rotorDiameter": 112,
+        "ratedPower": 2500,
+        "hubHeight": 120,
+        "bladeCount": 3,
+        "speedRange": "3-20 RPM",
+        "model": "WTG-2.5MW"
+    },
+    {
+        "id": "T002",
+        "name": "NW2",
+        "location": "IM_Zone_A",
+        "bladeLength": 55,
+        "rotorDiameter": 112,
+        "ratedPower": 2500,
+        "hubHeight": 120,
+        "bladeCount": 3,
+        "speedRange": "3-20 RPM",
+        "model": "WTG-2.5MW"
+    }
+]
 
 mock_runtime_data = {
     "dailyGeneration": 28500,
@@ -258,20 +293,54 @@ mock_runtime_data = {
     "apparentPower": 2230
 }
 
-mock_system_info = {
-    "model": "WTG-2.5MW",
-    "manufacturer": "新能源科技有限公司",
-    "installationDate": "2024-03-15",
-    "runHours": 8640,
-    "maintenanceCycle": 90,
-    "status": "running",
-    "statusText": "运行中"
-}
+mock_system_info = [
+    {
+        "model": "WTG-2.5MW",
+        "manufacturer": "New Energy Technology Co., Ltd.",
+        "installationDate": "2024-03-15",
+        "runHours": 8640,
+        "maintenanceCycle": 90,
+        "status": "running",
+        "statusText": "Running"
+    },
+    {
+        "model": "WTG-2.5MW",
+        "manufacturer": "New Energy Technology Co., Ltd.",
+        "installationDate": "2024-03-15",
+        "runHours": 8640,
+        "maintenanceCycle": 90,
+        "status": "running",
+        "statusText": "Running"
+    }
+]
 
-mock_wind_data = {
-    "speed": 12.5,
-    "direction": 135
-}
+mock_wind_data = [
+    {
+        "turbine_id": "T001",
+        "speed": 12.5,
+        "direction": 135
+    },
+    {
+        "turbine_id": "T002",
+        "speed": 12.5,
+        "direction": 135
+    },
+    {
+        "turbine_id": "T003",
+        "speed": 12.5,
+        "direction": 135
+    },
+    {
+        "turbine_id": "T004",
+        "speed": 12.5,
+        "direction": 135
+    },
+    {
+        "turbine_id": "T005",
+        "speed": 12.5,
+        "direction": 135
+    }
+]
 
 mock_alert_stats = {
     "critical": 0,
@@ -287,85 +356,88 @@ mock_power_trend = {
 # 健康检查
 @app.get("/")
 def read_root():
-    return {"message": "风电智能监控平台API正在运行"}
+    return {"message": "Wind Farm Intelligent Monitoring Platform API is running"}
 
 # 风机相关API
 @app.get("/api/turbines", response_model=List[Turbine])
 def get_turbines(status: Optional[str] = None):
-    """获取风机列表，支持状态筛选"""
+    """Get turbine list, supports status filtering"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine")'
-        if status:
-            query += f' |> filter(fn: (r) => r.status == "{status}")'
-        query += ' |> last()'
+        # Try to query from InfluxDB
+        query = f'SELECT * FROM turbine WHERE status = "{status}"' if status else f'SELECT * FROM turbine'
+        # query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine")'
+        # if status:
+        #     query += f' |> filter(fn: (r) => r.status == "{status}")'
+        # query += ' |> last()'
         
-        result = query_api.query(query=query)
+        result = client.query(query=query, mode="pandas")
         turbines = []
         
-        for table in result:
-            for record in table.records:
-                turbine = Turbine(
-                    id=record.values.get("turbine_id", ""),
-                    name=record.values.get("name", ""),
-                    location=record.values.get("location", ""),
-                    status=record.values.get("status", ""),
-                    power=float(record.values.get("power", 0)),
-                    windSpeed=float(record.values.get("windSpeed", 0)),
-                    temperature=float(record.values.get("temperature", 0)),
-                    vibration=float(record.values.get("vibration", 0)),
-                    lastMaintenance=record.values.get("lastMaintenance", ""),
-                    efficiency=float(record.values.get("efficiency", 0))
-                )
-                turbines.append(turbine)
+        for index, row in result.iterrows():
+            turbine = Turbine(
+                id=row["turbine_id"],
+                name=row["name"],
+                location=row["location"],
+                status=row["status"],
+                power=float(row["power"]),
+                windSpeed=float(row["windSpeed"]),
+                temperature=float(row["temperature"]),
+                vibration=float(row["vibration"]),
+                lastMaintenance=row["lastMaintenance"],
+                efficiency=float(row["efficiency"])
+            )
+            turbines.append(turbine)
         
         if turbines:
             return turbines
+        else:
+            return []
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
+        return []
     
-    # 使用模拟数据
-    if status:
-        return [t for t in mock_turbines if t["status"] == status]
-    return mock_turbines
+    # # 使用模拟数据
+    # if status:
+    #     return [t for t in mock_turbines if t["status"] == status]
+    # return mock_turbines
 
 @app.get("/api/turbines/{turbine_id}", response_model=TurbineInfo)
 def get_turbine_info(turbine_id: str):
-    """获取指定风机的详细信息"""
+    """Get detailed information for specified turbine"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine_info" and r.turbine_id == "{turbine_id}") |> last()'
-        result = query_api.query(query=query)
+        # Try to query from InfluxDB
+        query = f"SELECT * FROM turbine_info WHERE turbine_id = '{turbine_id}'"
+        # query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine" and r.turbine_id == "{turbine_id}") |> last()'
+        result = client.query(query=query, mode="pandas")
         
-        for table in result:
-            for record in table.records:
-                info = TurbineInfo(
-                    id=turbine_id,
-                    name=record.values.get("name", ""),
-                    location=record.values.get("location", ""),
-                    bladeLength=float(record.values.get("bladeLength", 0)),
-                    rotorDiameter=float(record.values.get("rotorDiameter", 0)),
-                    ratedPower=float(record.values.get("ratedPower", 0)),
-                    hubHeight=float(record.values.get("hubHeight", 0)),
-                    bladeCount=int(record.values.get("bladeCount", 0)),
-                    speedRange=record.values.get("speedRange", "")
-                )
-                return info
+        for index, row in result.iterrows():
+            info = TurbineInfo(
+                id=row["turbine_id"],
+                name=row["name"],
+                location=row["location"],
+                bladeLength=float(row["bladeLength"]),
+                rotorDiameter=float(row["rotorDiameter"]),
+                ratedPower=float(row["ratedPower"]),
+                hubHeight=float(row["hubHeight"]),
+                bladeCount=int(row["bladeCount"]),
+                speedRange=row["speedRange"]
+            )
+            return info
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
-    # 使用模拟数据
-    if turbine_id == "T001":
-        return mock_turbine_info
-    raise HTTPException(status_code=404, detail="风机不存在")
+    # # 使用模拟数据
+    # if turbine_id == "T001":
+    #     return mock_turbine_info
+    # raise HTTPException(status_code=404, detail="Turbine not found")
 
 @app.get("/api/turbines/{turbine_id}/runtime", response_model=RuntimeData)
 def get_turbine_runtime(turbine_id: str):
-    """获取风机运行数据"""
+    """Get turbine runtime data"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "runtime_data" and r.turbine_id == "{turbine_id}") |> last()'
-        result = query_api.query(query=query)
+        # Try to query from InfluxDB
+        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine" and r.turbine_id == "{turbine_id}") |> last()'
+        result = client.query(query=query)
         
         for table in result:
             for record in table.records:
@@ -377,138 +449,124 @@ def get_turbine_runtime(turbine_id: str):
                 )
                 return data
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_runtime_data
 
 @app.get("/api/turbines/{turbine_id}/system", response_model=SystemInfo)
 def get_turbine_system(turbine_id: str):
-    """获取风机系统信息"""
+    """Get turbine system information"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "system_info" and r.turbine_id == "{turbine_id}") |> last()'
-        result = query_api.query(query=query)
+        # Try to query from InfluxDB
+        query = f"SELECT model FROM turbine_info WHERE turbine_id = '{turbine_id}'"
+        result = client.query(query=query, mode="pandas")
+        model = result.iloc[0]["model"]
+
+        query = f"SELECT * FROM system_info WHERE model = '{model}'"
+        result = client.query(query=query, mode="pandas")
         
-        for table in result:
-            for record in table.records:
-                info = SystemInfo(
-                    model=record.values.get("model", ""),
-                    manufacturer=record.values.get("manufacturer", ""),
-                    installationDate=record.values.get("installationDate", ""),
-                    runHours=float(record.values.get("runHours", 0)),
-                    maintenanceCycle=int(record.values.get("maintenanceCycle", 0)),
-                    status=record.values.get("status", ""),
-                    statusText=record.values.get("statusText", "")
+        for index, row in result.iterrows():
+            info = SystemInfo(
+                    model=row["model"],
+                    manufacturer=row["manufacturer"],
+                    installationDate=row["installationDate"],
+                    runHours=float(row["runHours"]),
+                    maintenanceCycle=int(row["maintenanceCycle"]),
+                    status=row["status"],
+                    statusText=row["statusText"]
                 )
-                return info
+            return info
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_system_info
 
 @app.get("/api/turbines/{turbine_id}/wind", response_model=WindData)
 def get_turbine_wind(turbine_id: str):
-    """获取风速风向数据"""
+    """Get wind speed and direction data"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "wind_data" and r.turbine_id == "{turbine_id}") |> last()'
-        result = query_api.query(query=query)
-        
-        for table in result:
-            for record in table.records:
-                data = WindData(
-                    speed=float(record.values.get("speed", 0)),
-                    direction=float(record.values.get("direction", 0))
-                )
-                return data
-    except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
-    
-    # 使用模拟数据
-    return mock_wind_data
+        # Try to query from InfluxDB
+        query = f"SELECT * FROM wind WHERE turbine_id = '{turbine_id}' ORDER BY time DESC LIMIT 1"
+        result = client.query(query=query, mode="pandas")
 
-@app.get("/api/turbines/{turbine_id}/alerts", response_model=AlertStats)
-def get_turbine_alerts(turbine_id: str):
-    """获取风机告警统计"""
-    try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "alerts" and r.turbine_id == "{turbine_id}")'
-        result = query_api.query(query=query)
-        
-        stats = {"critical": 0, "major": 0, "minor": 0}
-        for table in result:
-            for record in table.records:
-                severity = record.values.get("severity", "")
-                if severity in stats:
-                    stats[severity] += 1
-        
-        return AlertStats(**stats)
+        row = result.iloc[0]
+        data = WindData(
+            speed=float(row["speed"]),
+            direction=float(row["direction"])
+        )
+        return data
+
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
-    
-    # 使用模拟数据
-    return mock_alert_stats
+        print(f"InfluxDB query failed: {e}")
+
+@app.get("/api/turbines/{turbine_id}/alerts", response_model=WarningStats)
+def get_turbine_alerts(turbine_id: str):
+    """Get turbine alert statistics"""
+    try:
+        # Try to query from InfluxDB
+        query = f"SELECT * FROM warnings WHERE turbine_id = '{turbine_id}'"
+        result = client.query(query=query, mode="pandas")
+        
+        stats = {"error": 0, "warning": 0}
+        for index, row in result.iterrows():
+            severity = row["type"]
+            if severity in stats:
+                stats[severity] += 1
+        
+        return WarningStats(**stats)
+    except Exception as e:
+        print(f"InfluxDB query failed: {e}")
 
 @app.get("/api/turbines/{turbine_id}/power/trend", response_model=PowerTrend)
 def get_turbine_power_trend(turbine_id: str):
-    """获取发电量趋势数据"""
+    """Get power generation trend data"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "power_trend" and r.turbine_id == "{turbine_id}")'
-        result = query_api.query(query=query)
+        query = f"SELECT * FROM turbine WHERE time > now() - INTERVAL '10min' AND turbine_id = '{turbine_id}' ORDER BY 'time' DESC"
+        result = client.query(query=query, mode="pandas")
         
-        hours = []
         power = []
-        for table in result:
-            for record in table.records:
-                hour = record.values.get("hour", "")
-                if hour:
-                    hours.append(hour)
-                    power.append(float(record.values.get("power", 0)))
+        for index, row in result.iterrows():
+            power.append(float(row["power"]))
         
-        if hours and power:
-            return PowerTrend(hours=hours, power=power)
+        while len(power) < 120:
+            power.append(0.0)
+        
+        return PowerTrend(power=power[:120])
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
-    
-    # 使用模拟数据
-    return mock_power_trend
+        print(f"InfluxDB query failed: {e}")
 
 # 统计数据API
 @app.get("/api/stats/daily", response_model=DailyStats)
 def get_daily_stats():
-    """获取当日发电统计数据"""
+    """Get daily power generation statistics"""
     try:
-        # 尝试从InfluxDB查询
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "daily_stats") |> last()'
-        result = query_api.query(query=query)
+        # Try to query from InfluxDB
+        query = f"SELECT * FROM daily_stats ORDER BY 'time' DESC LIMIT 1"
+        # query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "daily_stats") |> last()'
+        result = client.query(query=query, mode="pandas")
         
-        for table in result:
-            for record in table.records:
-                stats = DailyStats(
-                    totalGeneration=float(record.values.get("totalGeneration", 0)),
-                    avgPower=float(record.values.get("avgPower", 0)),
-                    maxPower=float(record.values.get("maxPower", 0)),
-                    runTime=float(record.values.get("runTime", 0)),
-                    avgEfficiency=float(record.values.get("avgEfficiency", 0))
-                )
-                return stats
+        for index, row in result.iterrows():
+            stats = DailyStats(
+                totalGeneration=float(row["totalGeneration"]),
+                avgPower=float(row["avgPower"]),
+                maxPower=float(row["maxPower"]),
+                runTime=float(row["runTime"]),
+                avgEfficiency=float(row["avgEfficiency"])
+            )
+            return stats
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
-    
-    # 使用模拟数据
-    return mock_daily_stats
+        print(f"InfluxDB query failed: {e}")
 
 # 警告信息API
 @app.get("/api/warnings", response_model=List[Warning])
 def get_warnings():
-    """获取最新警告信息"""
+    """Get latest warning information"""
     try:
-        # 尝试从InfluxDB查询
+        # Try to query from InfluxDB
         query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "warnings") |> sort(columns: ["_time"], desc: true) |> limit(n: 10)'
-        result = query_api.query(query=query)
+        result = client.query(query=query)
         
         warnings = []
         for table in result:
@@ -525,7 +583,7 @@ def get_warnings():
         if warnings:
             return warnings
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_warnings
@@ -533,11 +591,11 @@ def get_warnings():
 # 故障相关API
 @app.get("/api/faults/distribution", response_model=List[FaultDistribution])
 def get_fault_distribution():
-    """获取故障分布数据"""
+    """Get fault distribution data"""
     try:
-        # 尝试从InfluxDB查询
+        # Try to query from InfluxDB
         query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "faults") |> group(columns: ["fault_type"]) |> count()'
-        result = query_api.query(query=query)
+        result = client.query(query=query)
         
         distribution = []
         for table in result:
@@ -551,18 +609,18 @@ def get_fault_distribution():
         if distribution:
             return distribution
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_fault_distribution
 
 @app.get("/api/faults/daily", response_model=DailyFaults)
 def get_daily_faults():
-    """获取每日故障数数据"""
+    """Get daily fault count data"""
     try:
-        # 尝试从InfluxDB查询
+        # Try to query from InfluxDB
         query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "faults") |> group(columns: ["date"]) |> count()'
-        result = query_api.query(query=query)
+        result = client.query(query=query)
         
         dates = []
         counts = []
@@ -576,7 +634,7 @@ def get_daily_faults():
         if dates and counts:
             return DailyFaults(dates=dates, counts=counts)
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_daily_faults
@@ -584,11 +642,11 @@ def get_daily_faults():
 # 发电相关API
 @app.get("/api/power/comparison", response_model=PowerComparison)
 def get_power_comparison():
-    """获取当日发电量对比数据"""
+    """Get daily power generation comparison data"""
     try:
-        # 尝试从InfluxDB查询
+        # Try to query from InfluxDB
         query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "power_comparison")'
-        result = query_api.query(query=query)
+        result = client.query(query=query)
         
         hours = []
         actual = []
@@ -604,7 +662,7 @@ def get_power_comparison():
         if hours and actual and predicted:
             return PowerComparison(hours=hours, actual=actual, predicted=predicted)
     except Exception as e:
-        print(f"InfluxDB查询失败: {e}")
+        print(f"InfluxDB query failed: {e}")
     
     # 使用模拟数据
     return mock_power_comparison
@@ -612,7 +670,7 @@ def get_power_comparison():
 # 分析相关API
 @app.get("/api/analysis/overview")
 def get_analysis_overview():
-    """获取分析概览数据"""
+    """Get analysis overview data"""
     return {
         "totalTurbines": len(mock_turbines),
         "runningTurbines": len([t for t in mock_turbines if t["status"] == "running"]),
@@ -624,7 +682,7 @@ def get_analysis_overview():
 
 @app.get("/api/analysis/detailed")
 def get_analysis_detailed():
-    """获取详细分析数据"""
+    """Get detailed analysis data"""
     return {
         "turbineStats": [
             {
@@ -650,48 +708,90 @@ def get_analysis_detailed():
 # 数据刷新API
 @app.post("/api/data/refresh")
 def refresh_data():
-    """刷新数据"""
-    # 这里可以实现数据刷新逻辑
-    return {"message": "数据刷新成功"}
+    """Refresh data"""
+    # Data refresh logic can be implemented here
+    return {"message": "Data refresh successful"}
 
 @app.post("/api/turbines/{turbine_id}/refresh")
 def refresh_turbine_data(turbine_id: str):
-    """刷新指定风机数据"""
-    # 这里可以实现指定风机数据刷新逻辑
-    return {"message": f"风机 {turbine_id} 数据刷新成功"}
+    """Refresh data for specified turbine"""
+    # Data refresh logic for specified turbine can be implemented here
+    return {"message": f"Turbine {turbine_id} data refresh successful"}
 
-# 测试数据写入（用于初始化InfluxDB）
+# Test data write (for initializing InfluxDB）
 @app.post("/api/test/write")
 def write_test_data():
-    """写入测试数据到InfluxDB"""
+    """Write test data to InfluxDB"""
     try:
-        # 写入风机状态数据
+        # Write turbine status data
         for turbine in mock_turbines:
             point = Point("turbine")
             point.tag("turbine_id", turbine["id"])
-            point.tag("name", turbine["name"])
-            point.tag("location", turbine["location"])
-            point.field("status", turbine["status"])
-            point.field("power", turbine["power"])
-            point.field("windSpeed", turbine["windSpeed"])
-            point.field("temperature", turbine["temperature"])
-            point.field("vibration", turbine["vibration"])
+            point.tag("status", turbine["status"])
+            point.field("name", turbine["name"])
+            point.field("location", turbine["location"])
+            point.field("power", int(turbine["power"]))
+            point.field("windSpeed", float(turbine["windSpeed"]))
+            point.field("temperature", int(turbine["temperature"]))
+            point.field("vibration", float(turbine["vibration"]))
             point.field("lastMaintenance", turbine["lastMaintenance"])
-            point.field("efficiency", turbine["efficiency"])
-            write_api.write(bucket=INFLUXDB_BUCKET, record=point)
+            point.field("efficiency", int(turbine["efficiency"]))
+            client.write(record=point, write_precision="s")
+
+        for turbine in mock_turbine_info:
+            point = Point("turbine_info")
+            point.tag("turbine_id", turbine["id"])
+            point.field("name", turbine["name"])
+            point.field("location", turbine["location"])
+            point.field("bladeLength", float(turbine["bladeLength"]))
+            point.field("rotorDiameter", float(turbine["rotorDiameter"]))
+            point.field("ratedPower", float(turbine["ratedPower"]))
+            point.field("hubHeight", float(turbine["hubHeight"]))
+            point.field("bladeCount", int(turbine["bladeCount"]))
+            point.field("speedRange", turbine["speedRange"])
+            point.field("model", turbine["model"])
+            client.write(record=point, write_precision="s")
         
-        # 写入每日统计数据
+        for turbine in mock_system_info:
+            point = Point("system_info")
+            point.field("model", turbine["model"])
+            point.field("manufacturer", turbine["manufacturer"])
+            point.field("installationDate", turbine["installationDate"])
+            point.field("runHours", float(turbine["runHours"]))
+            point.field("maintenanceCycle", int(turbine["maintenanceCycle"]))
+            point.field("status", turbine["status"])
+            point.field("statusText", turbine["statusText"])
+            client.write(record=point, write_precision="s")
+        
+        for turbine in mock_wind_data:
+            point = Point("wind")
+            point.tag("turbine_id", turbine["turbine_id"])
+            point.field("speed", float(turbine["speed"]))
+            point.field("direction", float(turbine["direction"]))
+            client.write(record=point, write_precision="s")
+
+        for turbine in mock_warnings:
+            point = Point("warnings")
+            point.tag("turbine_id", turbine["turbine_id"])
+            point.field("title", turbine["title"])
+            point.field("description", turbine["description"])
+            point.field("type", turbine["type"])
+            point.field("timestamp", turbine["timestamp"])
+            client.write(record=point, write_precision="s")
+        
+        # Write daily statistics data
         point = Point("daily_stats")
         point.field("totalGeneration", mock_daily_stats["totalGeneration"])
         point.field("avgPower", mock_daily_stats["avgPower"])
         point.field("maxPower", mock_daily_stats["maxPower"])
         point.field("runTime", mock_daily_stats["runTime"])
         point.field("avgEfficiency", mock_daily_stats["avgEfficiency"])
-        write_api.write(bucket=INFLUXDB_BUCKET, record=point)
+        client.write(record=point, write_precision="s")
         
-        return {"message": "测试数据写入成功"}
+        return {"message": "Test data write successful"}
     except Exception as e:
-        return {"message": f"测试数据写入失败: {str(e)}"}
+        import traceback
+        return {"message": f"Test data write failed: {str(e)}", "error": traceback.format_exc()}
 
 if __name__ == "__main__":
     import uvicorn
