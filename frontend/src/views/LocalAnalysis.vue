@@ -83,19 +83,15 @@
               <div class="data-grid">
                 <div class="data-item">
                   <span class="data-label">今日发电量</span>
-                  <span class="data-value">{{ formatPower(runtimeData.dailyGeneration) }}</span>
+                  <span class="data-value">{{ runtimeData.dailyGeneration.toFixed(2) }} 千瓦时</span>
                 </div>
                 <div class="data-item">
-                  <span class="data-label">有功功率</span>
-                  <span class="data-value">{{ formatPower(runtimeData.activePower) }}</span>
+                  <span class="data-label">输出功率</span>
+                  <span class="data-value">{{ runtimeData.activePower.toFixed(2) }} kW</span>
                 </div>
                 <div class="data-item">
-                  <span class="data-label">无功功率</span>
-                  <span class="data-value">{{ formatPower(runtimeData.reactivePower) }}</span>
-                </div>
-                <div class="data-item">
-                  <span class="data-label">视在功率</span>
-                  <span class="data-value">{{ formatPower(runtimeData.apparentPower) }}</span>
+                  <span class="data-label">运行状态</span>
+                  <el-tag :type="runtimeData.status === 'running' ? 'success' : 'warning'">{{ runtimeData.statusText }}</el-tag>
                 </div>
               </div>
             </div>
@@ -124,24 +120,41 @@
                   <span class="info-label">安装日期</span>
                   <span class="info-value">{{ systemInfo.installationDate }}</span>
                 </div>
-                <div class="info-item">
-                  <span class="info-label">运行小时数</span>
-                  <span class="info-value">{{ systemInfo.runHours }} h</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">维护周期</span>
-                  <span class="info-value">{{ systemInfo.maintenanceCycle }} days</span>
-                </div>
-                <div class="info-item">
-                  <span class="info-label">状态</span>
-                  <el-tag :type="systemInfo.status === 'running' ? 'success' : 'warning'">{{ systemInfo.statusText }}</el-tag>
-                </div>
               </div>
             </div>
           </el-card>
         </div>
       </div>
 
+      <!-- 中间底部区域：新增框图 -->
+      <div class="middle-bottom-section">
+        <el-card shadow="hover">
+          <template #header>
+            <div class="card-header">
+              <span>数据概览</span>
+            </div>
+          </template>
+          <div class="overview-content">
+            <div class="overview-item">
+              <span class="overview-label">总发电量</span>
+              <span class="overview-value">{{ formatPower(runtimeData.dailyGeneration * 30) }}</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">运行效率</span>
+              <span class="overview-value">{{ (runtimeData.activePower / turbineInfo.ratedPower * 100).toFixed(1) }}%</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">风速</span>
+              <span class="overview-value">{{ windData.speed }} m/s</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">风向</span>
+              <span class="overview-value">{{ windData.direction }}°</span>
+            </div>
+          </div>
+        </el-card>
+      </div>
+      
       <!-- 中间区域：风机细节图（three.js网格形式） -->
       <div class="center-content">
         <div ref="threeJsContainer" class="three-js-container"></div>
@@ -236,11 +249,21 @@ export default {
     const route = useRoute()
     
     // 从路由参数中获取风机ID，默认为T001
-    const turbineId = computed(() => route.query.id || 'T001')
-
+    const turbineId = computed(() => {
+      const id = route.params.turbineId || route.query.id || 'T001'
+      return id.toUpperCase()
+    })
+    
+    // 根据风机ID获取风机名称
+    const turbineName = computed(() => {
+      const id = turbineId.value.toLowerCase()
+      const num = id.replace('t', '').replace('t00', '').replace('t0', '')
+      return `风机${num}`
+    })
+    
     // 响应式数据
     const turbineInfo = ref({ 
-      name: '加载中...',
+      name: turbineName.value,
       location: '',
       bladeLength: 0,
       rotorDiameter: 0,
@@ -253,16 +276,14 @@ export default {
       dailyGeneration: 0,
       activePower: 0,
       reactivePower: 0,
-      apparentPower: 0
+      apparentPower: 0,
+      status: 'running',
+      statusText: '运行中'
     })
     const systemInfo = ref({ 
       model: '',
       manufacturer: '',
       installationDate: '',
-      runHours: 0,
-      maintenanceCycle: 0,
-      status: 'running',
-      statusText: '运行中'
     })
     const windData = ref({ 
       speed: 0,
@@ -1033,7 +1054,7 @@ export default {
 
 /* 左侧下部分：风机系统信息 */
 .left-bottom-section {
-  flex: 1;
+  flex: 0.6;
   min-height: 160px;
 }
 
@@ -1078,6 +1099,56 @@ export default {
   font-weight: 600;
   color: white;
 }
+
+/* 中间底部区域：新增框图 */
+.middle-bottom-section {
+  width: 52.5%;
+  height: 13%;
+  position: absolute;
+  bottom: 0;
+  left: calc(25% + 15px);
+  z-index: 10;
+}
+
+.middle-bottom-section .el-card {
+  height: 89%;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-content {
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 0 10px;
+  align-items: center;
+}
+
+.overview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.overview-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+}
+
+.overview-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4FC3F7;
+  text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
+}
+
 
 /* 中间区域：风机细节图 */
 .center-content {
