@@ -6,7 +6,7 @@ from influxdb_client_3 import (
 )
 import os
 from dotenv import load_dotenv
-import pandas
+import pandas as pd
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import datetime
@@ -565,28 +565,24 @@ def get_warnings():
     """Get latest warning information"""
     try:
         # Try to query from InfluxDB
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "warnings") |> sort(columns: ["_time"], desc: true) |> limit(n: 10)'
-        result = client.query(query=query)
+        query = f"SELECT * FROM warnings WHERE time > now() - INTERVAL '6hour'"
+        result = client.query(query=query, mode="pandas")
         
         warnings = []
-        for table in result:
-            for record in table.records:
-                warning = Warning(
-                    id=record.values.get("warning_id", ""),
-                    title=record.values.get("title", ""),
-                    description=record.values.get("description", ""),
-                    type=record.values.get("type", ""),
-                    timestamp=record.values.get("timestamp", "")
-                )
-                warnings.append(warning)
+        for index, row in result.iterrows():
+            warning = Warning(
+                id=row["turbine_id"],
+                title=row["title"],
+                description=row["description"],
+                type=row["type"],
+                timestamp=row["timestamp"]
+            )
+            warnings.append(warning)
         
         if warnings:
             return warnings
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_warnings
 
 # 故障相关API
 @app.get("/api/faults/distribution", response_model=List[FaultDistribution])
@@ -594,50 +590,49 @@ def get_fault_distribution():
     """Get fault distribution data"""
     try:
         # Try to query from InfluxDB
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "faults") |> group(columns: ["fault_type"]) |> count()'
-        result = client.query(query=query)
+        query = f"SELECT * FROM warnings WHERE time > now() - INTERVAL '6hour'"
+        result = client.query(query=query, mode="pandas")
         
         distribution = []
-        for table in result:
-            for record in table.records:
-                fault = FaultDistribution(
-                    name=record.values.get("fault_type", ""),
-                    value=int(record.values.get("_value", 0))
-                )
-                distribution.append(fault)
+        warnings = {}
+        for index, row in result.iterrows():
+            if row["title"] not in warnings:
+                warnings[row["title"]] = 0
+            warnings[row["title"]] += 1
+        for key in warnings.keys():
+            fault = FaultDistribution(
+                name=key,
+                value=warnings[key]
+            )
+            distribution.append(fault)
         
         if distribution:
             return distribution
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_fault_distribution
 
-@app.get("/api/faults/daily", response_model=DailyFaults)
+@app.get("/api/faults/daily", response_model=int)
 def get_daily_faults():
     """Get daily fault count data"""
     try:
         # Try to query from InfluxDB
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -7d) |> filter(fn: (r) => r._measurement == "faults") |> group(columns: ["date"]) |> count()'
-        result = client.query(query=query)
+        query = f"SELECT * FROM warnings WHERE time > now() - INTERVAL '1day'"
+        result = client.query(query=query, mode="pandas")
+
+        return result["timestamp"].count()
         
-        dates = []
-        counts = []
-        for table in result:
-            for record in table.records:
-                date = record.values.get("date", "")
-                if date:
-                    dates.append(date)
-                    counts.append(int(record.values.get("_value", 0)))
+        # dates = []
+        # counts = []
+        # for index, row in result.iterrows():
+        #     date = row["date"]
+        #     if date:
+        #         dates.append(date)
+        #         counts.append(int(row["_value"]))
         
-        if dates and counts:
-            return DailyFaults(dates=dates, counts=counts)
+        # if dates and counts:
+        #     return DailyFaults(dates=dates, counts=counts)
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_daily_faults
 
 # 发电相关API
 @app.get("/api/power/comparison", response_model=PowerComparison)
@@ -645,65 +640,69 @@ def get_power_comparison():
     """Get daily power generation comparison data"""
     try:
         # Try to query from InfluxDB
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -24h) |> filter(fn: (r) => r._measurement == "power_comparison")'
-        result = client.query(query=query)
-        
+        query = f"SELECT CAST(date_bin(interval '1 hour', time, now()) AS TIMESTAMP) as time_bucket, AVG(power) as total_power FROM 'turbine' WHERE time > now() - INTERVAL '12 hours' GROUP BY 1 ORDER BY 1 DESC"
+        result = client.query(query=query, mode="pandas")
+        if result.empty:
+            return PowerComparison(hours=[], actual=[], predicted=[])
+
+        result["time_bucket"] = pd.to_datetime(result["time_bucket"])
+        result.set_index("time_bucket", inplace=True)
+
+        result = result.sort_index()
+        result_filled = result.resample("1h").mean().fillna(0)
+        result_final = result_filled.tail(12)
+
         hours = []
         actual = []
         predicted = []
-        for table in result:
-            for record in table.records:
-                hour = record.values.get("hour", "")
-                if hour:
-                    hours.append(hour)
-                    actual.append(float(record.values.get("actual", 0)))
-                    predicted.append(float(record.values.get("predicted", 0)))
+        for index, row in result_final.iterrows():
+                hour = index.strftime("%H:%M")
+                hours.append(hour)
+                actual.append(round(float(row["total_power"]), 2))
+                predicted.append(0)
         
-        if hours and actual and predicted:
-            return PowerComparison(hours=hours, actual=actual, predicted=predicted)
+        return PowerComparison(hours=hours, actual=actual, predicted=predicted)
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_power_comparison
+        return PowerComparison(hours=[], actual=[], predicted=[])
 
-# 分析相关API
-@app.get("/api/analysis/overview")
-def get_analysis_overview():
-    """Get analysis overview data"""
-    return {
-        "totalTurbines": len(mock_turbines),
-        "runningTurbines": len([t for t in mock_turbines if t["status"] == "running"]),
-        "warningTurbines": len([t for t in mock_turbines if t["status"] == "warning"]),
-        "stoppedTurbines": len([t for t in mock_turbines if t["status"] == "stopped"]),
-        "totalGeneration": mock_daily_stats["totalGeneration"],
-        "avgEfficiency": mock_daily_stats["avgEfficiency"]
-    }
+# # 分析相关API
+# @app.get("/api/analysis/overview")
+# def get_analysis_overview():
+#     """Get analysis overview data"""
+#     return {
+#         "totalTurbines": len(mock_turbines),
+#         "runningTurbines": len([t for t in mock_turbines if t["status"] == "running"]),
+#         "warningTurbines": len([t for t in mock_turbines if t["status"] == "warning"]),
+#         "stoppedTurbines": len([t for t in mock_turbines if t["status"] == "stopped"]),
+#         "totalGeneration": mock_daily_stats["totalGeneration"],
+#         "avgEfficiency": mock_daily_stats["avgEfficiency"]
+#     }
 
-@app.get("/api/analysis/detailed")
-def get_analysis_detailed():
-    """Get detailed analysis data"""
-    return {
-        "turbineStats": [
-            {
-                "id": t["id"],
-                "name": t["name"],
-                "efficiency": t["efficiency"],
-                "power": t["power"],
-                "status": t["status"]
-            }
-            for t in mock_turbines
-        ],
-        "faultStats": {
-            "totalFaults": sum(f["value"] for f in mock_fault_distribution),
-            "topFaultTypes": mock_fault_distribution[:3]
-        },
-        "powerStats": {
-            "maxPower": mock_daily_stats["maxPower"],
-            "avgPower": mock_daily_stats["avgPower"],
-            "totalGeneration": mock_daily_stats["totalGeneration"]
-        }
-    }
+# @app.get("/api/analysis/detailed")
+# def get_analysis_detailed():
+#     """Get detailed analysis data"""
+#     return {
+#         "turbineStats": [
+#             {
+#                 "id": t["id"],
+#                 "name": t["name"],
+#                 "efficiency": t["efficiency"],
+#                 "power": t["power"],
+#                 "status": t["status"]
+#             }
+#             for t in mock_turbines
+#         ],
+#         "faultStats": {
+#             "totalFaults": sum(f["value"] for f in mock_fault_distribution),
+#             "topFaultTypes": mock_fault_distribution[:3]
+#         },
+#         "powerStats": {
+#             "maxPower": mock_daily_stats["maxPower"],
+#             "avgPower": mock_daily_stats["avgPower"],
+#             "totalGeneration": mock_daily_stats["totalGeneration"]
+#         }
+#     }
 
 # 数据刷新API
 @app.post("/api/data/refresh")
