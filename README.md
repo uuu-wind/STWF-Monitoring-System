@@ -11,3 +11,7 @@ A monitoring system suitable for solar thermal wind fields, developed using Vue3
 3.输入：`cd backend`和`python app.py`启用后端  
 4.新建一个cmd窗口，在新建的cmd窗口中输入`cd frontend`，`npm install`，待安装完成后输入`npm run dev`启用前端  
 5.在浏览器输入前端地址（前端cmd窗口中会显示），即可使用本平台
+
+# 20260126修改-2
+关于如何在Docker中部署InfluxDB3和InfluxDB-ui的方法见这篇文章：`https://blog.csdn.net/RudolphLiu/article/details/151001259`。  
+后续会加入硬件部分
