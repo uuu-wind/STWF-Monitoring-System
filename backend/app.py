@@ -77,8 +77,8 @@ class TurbineInfo(TurbineBase):
 class RuntimeData(BaseModel):
     dailyGeneration: float
     activePower: float
-    reactivePower: float
-    apparentPower: float
+    status: str
+
 
 class SystemInfo(BaseModel):
     model: str
@@ -286,13 +286,6 @@ mock_turbine_info = [
     }
 ]
 
-mock_runtime_data = {
-    "dailyGeneration": 28500,
-    "activePower": 2200,
-    "reactivePower": 350,
-    "apparentPower": 2230
-}
-
 mock_system_info = [
     {
         "model": "WTG-2.5MW",
@@ -435,24 +428,34 @@ def get_turbine_info(turbine_id: str):
 def get_turbine_runtime(turbine_id: str):
     """Get turbine runtime data"""
     try:
+        tz_bj = datetime.timezone(datetime.timedelta(hours=8))
+        today_start_bj = datetime.datetime.now(tz_bj).replace(hour=0, minute=0, second=0, microsecond=0)
+        start_utc_str = today_start_bj.astimezone(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         # Try to query from InfluxDB
-        query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine" and r.turbine_id == "{turbine_id}") |> last()'
-        result = client.query(query=query)
-        
-        for table in result:
-            for record in table.records:
-                data = RuntimeData(
-                    dailyGeneration=float(record.values.get("dailyGeneration", 0)),
-                    activePower=float(record.values.get("activePower", 0)),
-                    reactivePower=float(record.values.get("reactivePower", 0)),
-                    apparentPower=float(record.values.get("apparentPower", 0))
-                )
-                return data
+        query = f"SELECT SUM(power) as dailygeneration FROM turbine WHERE time >= '{start_utc_str}' AND time <= now() AND turbine_id = '{turbine_id}'"
+        result_1 = client.query(query=query, mode="pandas")
+        if result_1.empty or result_1["dailygeneration"].isna().all():
+            daily_gen = 0.0
+        else:
+            # 明确访问列名，并取第一个值
+            daily_gen = float(result_1["dailygeneration"].iloc[0])
+        daily_gen = daily_gen * 5.0 / 3600.0
+
+        query = f"SELECT power, status FROM turbine WHERE time >= '{start_utc_str}' AND time <= now() AND turbine_id = '{turbine_id}' ORDER BY time DESC LIMIT 1"
+        result_2 = client.query(query=query, mode="pandas")
+        if result_2.empty:
+            # 如果没查到状态，给个默认值防止崩溃
+            data = RuntimeData(dailyGeneration=daily_gen, activePower=0.0, status="Unknown")
+        else:
+            row = result_2.iloc[0]
+            data = RuntimeData(
+                dailyGeneration=daily_gen,
+                activePower=float(row["power"]),
+                status=row["status"]
+            )
+        return data
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_runtime_data
 
 @app.get("/api/turbines/{turbine_id}/system", response_model=SystemInfo)
 def get_turbine_system(turbine_id: str):
@@ -493,6 +496,7 @@ def get_turbine_wind(turbine_id: str):
 
         row = result.iloc[0]
         data = WindData(
+            turbine_id=row["turbine_id"],
             speed=float(row["speed"]),
             direction=float(row["direction"])
         )

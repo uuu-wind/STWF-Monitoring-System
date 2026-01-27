@@ -126,30 +126,30 @@
         </div>
       </div>
 
-      <!-- 中间底部区域：故障信息 -->
+      <!-- 中间底部区域：新增框图 -->
       <div class="middle-bottom-section">
         <el-card shadow="hover">
           <template #header>
             <div class="card-header">
-              <span>故障信息</span>
+              <span>数据概览</span>
             </div>
           </template>
-          <div class="fault-info-content">
-            <div v-if="faultInfo.length > 0" class="fault-list">
-              <div v-for="(fault, index) in faultInfo" :key="index" class="fault-item">
-                <div class="fault-header">
-                  <span class="fault-title">{{ fault.title }}</span>
-                  <el-tag :type="fault.type === 'error' ? 'danger' : 'warning'" size="small">
-                    {{ fault.type === 'error' ? '严重' : '警告' }}
-                  </el-tag>
-                </div>
-                <div class="fault-description">{{ fault.description }}</div>
-                <div class="fault-time">{{ fault.timestamp }}</div>
-              </div>
+          <div class="overview-content">
+            <div class="overview-item">
+              <span class="overview-label">总发电量</span>
+              <span class="overview-value">{{ formatPower(runtimeData.dailyGeneration * 30) }}</span>
             </div>
-            <div v-else class="no-fault">
-              <el-icon size="40" color="#67C23A"><SuccessFilled /></el-icon>
-              <p>当前无故障信息</p>
+            <div class="overview-item">
+              <span class="overview-label">运行效率</span>
+              <span class="overview-value">{{ (runtimeData.activePower / turbineInfo.ratedPower * 100).toFixed(1) }}%</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">风速</span>
+              <span class="overview-value">{{ windData.speed }} m/s</span>
+            </div>
+            <div class="overview-item">
+              <span class="overview-label">风向</span>
+              <span class="overview-value">{{ windData.direction }}°</span>
             </div>
           </div>
         </el-card>
@@ -228,7 +228,7 @@ import axios from 'axios'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
-import { WindPower, SuccessFilled } from '@element-plus/icons-vue'
+import { WindPower } from '@element-plus/icons-vue'
 
 // API基础URL
 const API_BASE_URL = 'http://localhost:8000/api'
@@ -298,7 +298,6 @@ export default {
       hours: [],
       power: []
     })
-    const faultInfo = ref([])
     const loading = ref(false)
 
     // 图表引用
@@ -344,6 +343,20 @@ export default {
       try {
         const response = await apiClient.get(`/turbines/${turbineId.value}/runtime`)
         runtimeData.value = response.data
+        switch(runtimeData.value.status) {
+          case 'running':
+            runtimeData.value.statusText = '运行中'
+            break
+          case 'stopped':
+            runtimeData.value.statusText = '已停机'
+            break
+          case 'warning':
+            runtimeData.value.statusText = '告警'
+            break
+          default:
+            runtimeData.value.statusText = '存在问题'
+            break
+        }
       } catch (error) {
         console.error('获取运行数据失败:', error)
         ElMessage.error('获取运行数据失败')
@@ -396,17 +409,6 @@ export default {
       }
     }
 
-    // 获取故障信息
-    const fetchFaultInfo = async () => {
-      try {
-        const response = await apiClient.get('/warnings')
-        faultInfo.value = response.data.filter(warning => warning.turbine_id === turbineId.value)
-      } catch (error) {
-        console.error('获取故障信息失败:', error)
-        ElMessage.error('获取故障信息失败')
-      }
-    }
-
     // 刷新数据
     const refreshData = async () => {
       try {
@@ -417,8 +419,7 @@ export default {
           fetchSystemInfo(),
           fetchWindData(),
           fetchAlertStats(),
-          fetchPowerTrend(),
-          fetchFaultInfo()
+          fetchPowerTrend()
         ])
         ElMessage.success('数据刷新成功')
       } catch (error) {
@@ -801,7 +802,7 @@ export default {
       })
 
       // 初始加载数据
-      fetchFaultInfo()
+      refreshData()
 
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
@@ -828,7 +829,6 @@ export default {
       systemInfo,
       windData,
       alertStats,
-      faultInfo,
       powerChart,
       alertChart,
       threeJsContainer,
@@ -1117,7 +1117,7 @@ export default {
 /* 中间底部区域：新增框图 */
 .middle-bottom-section {
   width: 52.5%;
-  height: 24%;
+  height: 13%;
   position: absolute;
   bottom: 0;
   left: calc(25% + 15px);
@@ -1125,73 +1125,42 @@ export default {
 }
 
 .middle-bottom-section .el-card {
-  height: 94%;
+  height: 89%;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
 }
 
-.fault-info-content {
+.overview-content {
   height: 100%;
-  padding: 10px;
-  overflow-y: auto;
-}
-
-.fault-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-}
-
-.fault-item {
-  padding: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  border-left: 3px solid #E6A23C;
-}
-
-.fault-item:hover {
-  background: rgba(255, 255, 255, 0.15);
-}
-
-.fault-header {
-  display: flex;
-  justify-content: space-between;
+  padding: 0 10px;
   align-items: center;
-  margin-bottom: 8px;
 }
 
-.fault-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #ffffff;
-}
-
-.fault-description {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 6px;
-  line-height: 1.4;
-}
-
-.fault-time {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.no-fault {
+.overview-item {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  color: #67C23A;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
 }
 
-.no-fault p {
-  margin-top: 10px;
-  font-size: 14px;
+.overview-label {
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 4px;
+}
+
+.overview-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4FC3F7;
+  text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
 }
 
 

@@ -27,16 +27,16 @@
               系统设置
             </el-button>
             <el-select v-model="selectedTurbine" placeholder="选择风机" clearable @change="navigateToTurbine">
-              <el-option label="风机1" value="t001" />
-              <el-option label="风机2" value="t002" />
-              <el-option label="风机3" value="t003" />
-              <el-option label="风机4" value="t004" />
-              <el-option label="风机5" value="t005" />
-              <el-option label="风机6" value="t006" />
-              <el-option label="风机7" value="t007" />
-              <el-option label="风机8" value="t008" />
-              <el-option label="风机9" value="t009" />
-              <el-option label="风机10" value="t010" />
+              <el-option label="风机1" value="T001" />
+              <el-option label="风机2" value="T002" />
+              <el-option label="风机3" value="T003" />
+              <el-option label="风机4" value="T004" />
+              <el-option label="风机5" value="T005" />
+              <el-option label="风机6" value="T006" />
+              <el-option label="风机7" value="T007" />
+              <el-option label="风机8" value="T008" />
+              <el-option label="风机9" value="T009" />
+              <el-option label="风机10" value="T010" />
             </el-select>
           </div>
         </div>
