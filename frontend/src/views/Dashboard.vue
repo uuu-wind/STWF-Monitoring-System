@@ -284,6 +284,7 @@ export default {
       try {
         const response = await apiClient.get('/faults/distribution')
         faultDistribution.value = response.data
+        console.log(faultDistribution.value)
         updateFaultPieChart()
       } catch (error) {
         console.error('获取故障分布数据失败:', error)
@@ -353,6 +354,14 @@ export default {
     // 初始化故障饼状图
     const initFaultPieChart = () => {
       if (faultPieChart.value) {
+        // 确保 DOM 元素有尺寸
+        if (faultPieChart.value.clientWidth === 0 || faultPieChart.value.clientHeight === 0) {
+          // 等待 DOM 渲染完成后重试
+          setTimeout(() => {
+            initFaultPieChart()
+          }, 100)
+          return
+        }
         faultPieChartInstance = echarts.init(faultPieChart.value)
         updateFaultPieChart()
       }
@@ -360,7 +369,13 @@ export default {
 
     // 更新故障饼状图
     const updateFaultPieChart = () => {
-      if (!faultPieChartInstance) return
+      if (!faultPieChartInstance)
+      {
+        console.log('故障饼状图实例不存在，尝试初始化')
+        // 尝试初始化图表
+        initFaultPieChart()
+        return
+      }
       
       const option = {
         tooltip: {
@@ -427,6 +442,14 @@ export default {
     // 初始化总故障数折线图
     const initFaultLineChart = () => {
       if (faultLineChart.value) {
+        // 确保 DOM 元素有尺寸
+        if (faultLineChart.value.clientWidth === 0 || faultLineChart.value.clientHeight === 0) {
+          // 等待 DOM 渲染完成后重试
+          setTimeout(() => {
+            initFaultLineChart()
+          }, 100)
+          return
+        }
         faultLineChartInstance = echarts.init(faultLineChart.value)
         updateFaultLineChart()
       }
@@ -434,7 +457,13 @@ export default {
 
     // 更新总故障数折线图
     const updateFaultLineChart = () => {
-      if (!faultLineChartInstance) return
+      if (!faultLineChartInstance)
+      {
+        console.log('总故障数折线图实例不存在，尝试初始化')
+        // 尝试初始化图表
+        initFaultLineChart()
+        return
+      }
       
       const option = {
         tooltip: {
@@ -524,6 +553,14 @@ export default {
     // 初始化当日发电量折线图
     const initPowerLineChart = () => {
       if (powerLineChart.value) {
+        // 确保 DOM 元素有尺寸
+        if (powerLineChart.value.clientWidth === 0 || powerLineChart.value.clientHeight === 0) {
+          // 等待 DOM 渲染完成后重试
+          setTimeout(() => {
+            initPowerLineChart()
+          }, 100)
+          return
+        }
         powerLineChartInstance = echarts.init(powerLineChart.value)
         updatePowerLineChart()
       }
@@ -531,8 +568,14 @@ export default {
 
     // 更新当日发电量折线图
     const updatePowerLineChart = () => {
-      if (!powerLineChartInstance) return
-      
+      if (!powerLineChartInstance)
+      {
+        console.log('当日发电量折线图实例不存在，尝试初始化')
+        // 尝试初始化图表
+        initPowerLineChart()
+        return
+      }
+      console.log('更新当日发电量折线图')
       const option = {
         tooltip: {
           trigger: 'axis',
@@ -1156,8 +1199,8 @@ export default {
 }
 
 .chart {
-  width: 100%;
-  height: 100%;
+  width: 900px;
+  height: 180px;
 }
 
 /* 卡片头部样式 */

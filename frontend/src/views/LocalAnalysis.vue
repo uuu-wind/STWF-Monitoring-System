@@ -433,6 +433,14 @@ export default {
     // 初始化发电量折线图
     const initPowerChart = () => {
       if (powerChart.value) {
+        // 确保 DOM 元素有尺寸
+        if (powerChart.value.clientWidth === 0 || powerChart.value.clientHeight === 0) {
+          // 等待 DOM 渲染完成后重试
+          setTimeout(() => {
+            initPowerChart()
+          }, 100)
+          return
+        }
         powerChartInstance = echarts.init(powerChart.value)
         updatePowerChart()
       }
@@ -441,6 +449,14 @@ export default {
     // 初始化告警统计柱状图
     const initAlertChart = () => {
       if (alertChart.value) {
+        // 确保 DOM 元素有尺寸
+        if (alertChart.value.clientWidth === 0 || alertChart.value.clientHeight === 0) {
+          // 等待 DOM 渲染完成后重试
+          setTimeout(() => {
+            initAlertChart()
+          }, 100)
+          return
+        }
         alertChartInstance = echarts.init(alertChart.value)
         updateAlertChart()
       }
@@ -448,7 +464,12 @@ export default {
 
     // 更新发电量折线图
     const updatePowerChart = () => {
-      if (!powerChartInstance) return
+      if (!powerChartInstance) {
+        console.log('发电量折线图实例不存在，尝试初始化')
+        // 尝试初始化图表
+        initPowerChart()
+        return
+      }
       
       const option = {
         tooltip: {
@@ -544,7 +565,12 @@ export default {
 
     // 更新告警统计柱状图
     const updateAlertChart = () => {
-      if (!alertChartInstance) return
+      if (!alertChartInstance) {
+        console.log('告警统计柱状图实例不存在，尝试初始化')
+        // 尝试初始化图表
+        initAlertChart()
+        return
+      }
       
       const option = {
         tooltip: {
@@ -1209,8 +1235,8 @@ export default {
 }
 
 .chart {
-  width: 100%;
-  height: 100%;
+  width: 300px;
+  height: 100px;
 }
 
 /* 风速风向罗盘 */
