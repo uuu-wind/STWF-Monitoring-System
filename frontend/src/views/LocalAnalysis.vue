@@ -126,30 +126,30 @@
         </div>
       </div>
 
-      <!-- 中间底部区域：新增框图 -->
+      <!-- 中间底部区域：故障信息 -->
       <div class="middle-bottom-section">
         <el-card shadow="hover">
           <template #header>
             <div class="card-header">
-              <span>数据概览</span>
+              <span>故障信息</span>
             </div>
           </template>
-          <div class="overview-content">
-            <div class="overview-item">
-              <span class="overview-label">总发电量</span>
-              <span class="overview-value">{{ formatPower(runtimeData.dailyGeneration * 30) }}</span>
+          <div class="fault-info-content">
+            <div v-if="faultInfo.length > 0" class="fault-list">
+              <div v-for="(fault, index) in faultInfo" :key="index" class="fault-item">
+                <div class="fault-header">
+                  <span class="fault-title">{{ fault.title }}</span>
+                  <el-tag :type="fault.type === 'error' ? 'danger' : 'warning'" size="small">
+                    {{ fault.type === 'error' ? '严重' : '警告' }}
+                  </el-tag>
+                </div>
+                <div class="fault-description">{{ fault.description }}</div>
+                <div class="fault-time">{{ fault.timestamp }}</div>
+              </div>
             </div>
-            <div class="overview-item">
-              <span class="overview-label">运行效率</span>
-              <span class="overview-value">{{ (runtimeData.activePower / turbineInfo.ratedPower * 100).toFixed(1) }}%</span>
-            </div>
-            <div class="overview-item">
-              <span class="overview-label">风速</span>
-              <span class="overview-value">{{ windData.speed }} m/s</span>
-            </div>
-            <div class="overview-item">
-              <span class="overview-label">风向</span>
-              <span class="overview-value">{{ windData.direction }}°</span>
+            <div v-else class="no-fault">
+              <el-icon size="40" color="#67C23A"><SuccessFilled /></el-icon>
+              <p>当前无故障信息</p>
             </div>
           </div>
         </el-card>
@@ -228,7 +228,7 @@ import axios from 'axios'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
-import { WindPower } from '@element-plus/icons-vue'
+import { WindPower, SuccessFilled } from '@element-plus/icons-vue'
 
 // API基础URL
 const API_BASE_URL = 'http://localhost:8000/api'
@@ -298,6 +298,7 @@ export default {
       hours: [],
       power: []
     })
+    const faultInfo = ref([])
     const loading = ref(false)
 
     // 图表引用
@@ -395,6 +396,17 @@ export default {
       }
     }
 
+    // 获取故障信息
+    const fetchFaultInfo = async () => {
+      try {
+        const response = await apiClient.get('/warnings')
+        faultInfo.value = response.data.filter(warning => warning.turbine_id === turbineId.value)
+      } catch (error) {
+        console.error('获取故障信息失败:', error)
+        ElMessage.error('获取故障信息失败')
+      }
+    }
+
     // 刷新数据
     const refreshData = async () => {
       try {
@@ -405,7 +417,8 @@ export default {
           fetchSystemInfo(),
           fetchWindData(),
           fetchAlertStats(),
-          fetchPowerTrend()
+          fetchPowerTrend(),
+          fetchFaultInfo()
         ])
         ElMessage.success('数据刷新成功')
       } catch (error) {
@@ -788,7 +801,7 @@ export default {
       })
 
       // 初始加载数据
-      refreshData()
+      fetchFaultInfo()
 
       // 监听窗口大小变化
       window.addEventListener('resize', handleResize)
@@ -815,6 +828,7 @@ export default {
       systemInfo,
       windData,
       alertStats,
+      faultInfo,
       powerChart,
       alertChart,
       threeJsContainer,
@@ -1103,7 +1117,7 @@ export default {
 /* 中间底部区域：新增框图 */
 .middle-bottom-section {
   width: 52.5%;
-  height: 13%;
+  height: 24%;
   position: absolute;
   bottom: 0;
   left: calc(25% + 15px);
@@ -1111,42 +1125,73 @@ export default {
 }
 
 .middle-bottom-section .el-card {
-  height: 89%;
+  height: 94%;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
 }
 
-.overview-content {
+.fault-info-content {
   height: 100%;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  padding: 0 10px;
-  align-items: center;
+  padding: 10px;
+  overflow-y: auto;
 }
 
-.overview-item {
+.fault-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fault-item {
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #E6A23C;
+}
+
+.fault-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.fault-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fault-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.fault-description {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.fault-time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.no-fault {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  height: 100%;
+  color: #67C23A;
 }
 
-.overview-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 4px;
-}
-
-.overview-value {
+.no-fault p {
+  margin-top: 10px;
   font-size: 14px;
-  font-weight: 600;
-  color: #4FC3F7;
-  text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 
