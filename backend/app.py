@@ -16,9 +16,9 @@ import random
 load_dotenv()
 
 # InfluxDB 连接配置
-INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8181")
-INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "apiv3_3dK1l9XS8U5woahz6rmuIxfjT_3_0StOLWQjxilRN5OT4ph_b0ZwKWj5m4Z-pQL5u18haoq5HzzNIopBo-A-yA")
-INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "windfarm")
+INFLUXDB_URL = "http://localhost:8181"
+INFLUXDB_TOKEN = "apiv3_q7RPi0zeY1bWYCuPnbgrlMZSvyGqXHzhJ8iFhLQBZdIxk3CFuxSqerS89l6GdeQMGgM0ICCPYB42oiOszt1l4Q"
+INFLUXDB_BUCKET = "windfarm"
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -611,15 +611,63 @@ def get_fault_distribution():
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
 
-@app.get("/api/faults/daily", response_model=int)
+@app.get("/api/faults/daily", response_model=DailyFaults)
 def get_daily_faults():
     """Get daily fault count data"""
     try:
-        # Try to query from InfluxDB
-        query = f"SELECT * FROM warnings WHERE time > now() - INTERVAL '1day'"
+        # 1. 计算时间边界（北京时间 CST）
+        # 假设当前是北京时间，获取今天的 00:00:00
+        tz_bj = datetime.timezone(datetime.timedelta(hours=8))
+        now_bj = datetime.datetime.now(tz_bj)
+        today_start_bj = now_bj.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # 包含今天在内的最近 10 天起始点 (例如今天 10 号，起点就是 1 号)
+        start_date_bj = today_start_bj - datetime.timedelta(days=9)
+        # 统计终点：明天的 00:00:00（左闭右开区间）
+        end_date_bj = today_start_bj + datetime.timedelta(days=1)
+
+        # 转换为字符串用于 SQL (InfluxDB 3 接受 TIMESTAMP 格式)
+        start_utc_str = start_date_bj.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+        end_utc_str = end_date_bj.astimezone(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
+
+        query = f"""
+        SELECT 
+            CAST(date_bin(interval '1 day', time + interval '8 hours') AS TIMESTAMP) as time_bucket, 
+            COUNT(time) as total_warnings 
+        FROM 'warnings' 
+        WHERE time >= TIMESTAMP '{start_utc_str}'
+          AND time < TIMESTAMP '{end_utc_str}'
+        GROUP BY 1 
+        ORDER BY 1 ASC
+        """
         result = client.query(query=query, mode="pandas")
 
-        return result["timestamp"].count()
+        idx = pd.date_range(start=start_date_bj, periods=10, freq='D', tz=tz_bj)
+
+        if result.empty:
+            return DailyFaults(
+                dates=[d.strftime("%Y-%m-%d") for d in idx], 
+                counts=[0] * len(idx)
+            )
+
+        result["time_bucket"] = pd.to_datetime(result["time_bucket"])
+
+        if result["time_bucket"].dt.tz is None:
+            result["time_bucket"] = result["time_bucket"].dt.tz_localize(tz_bj)
+        else:
+            result["time_bucket"] = result["time_bucket"].dt.tz_convert(tz_bj)
+
+        result.set_index("time_bucket", inplace=True)
+        result_final = result.reindex(idx, fill_value=0)
+
+        dates = []
+        counts = []
+        for index, row in result_final.iterrows():
+            date = index.strftime("%Y-%m-%d")
+            dates.append(date)
+            counts.append(int(row["total_warnings"]))
+
+        return DailyFaults(dates=dates, counts=counts)
         
         # dates = []
         # counts = []
@@ -639,27 +687,50 @@ def get_daily_faults():
 def get_power_comparison():
     """Get daily power generation comparison data"""
     try:
+        now_utc = pd.Timestamp.now(tz='UTC')
+        
+        # 1. 调整时间边界：
+        # 结束点设为当前小时的顶格（例如 14:30 -> 15:00）
+        # 这样才能包含正在进行的这一小时
+        end_time_ceil = now_utc.ceil('h')
+        # 起始点往前推 11 小时，得到总共 12 个时间槽
+        start_time = end_time_ceil - pd.Timedelta(hours=11)
         # Try to query from InfluxDB
-        query = f"SELECT CAST(date_bin(interval '1 hour', time, now()) AS TIMESTAMP) as time_bucket, AVG(power) as total_power FROM 'turbine' WHERE time > now() - INTERVAL '12 hours' GROUP BY 1 ORDER BY 1 DESC"
+        query = f"""
+            SELECT
+                date_bin(interval '1 hour', time) as time_bucket,
+                SUM(power) as total_power
+            FROM 'turbine'
+            WHERE time >= '{start_time.isoformat()}'
+            AND time < '{end_time_ceil.isoformat()}'
+            GROUP BY 1
+            ORDER BY 1 ASC
+        """
         result = client.query(query=query, mode="pandas")
+        full_range = pd.date_range(start=start_time, end=end_time_ceil - pd.Timedelta(hours=1), freq='h', tz='UTC')
         if result.empty:
-            return PowerComparison(hours=[], actual=[], predicted=[])
+            return PowerComparison(
+                hours=[d.tz_convert('Asia/Shanghai').strftime("%H:%M") for d in full_range],
+                actual=[0.0] * 12,
+                predicted=[0.0] * 12
+            )
 
         result["time_bucket"] = pd.to_datetime(result["time_bucket"])
+        if result["time_bucket"].dt.tz is None:
+            result["time_bucket"] = result["time_bucket"].dt.tz_localize('UTC')
         result.set_index("time_bucket", inplace=True)
 
-        result = result.sort_index()
-        result_filled = result.resample("1h").mean().fillna(0)
-        result_final = result_filled.tail(12)
+        result_final = result.reindex(full_range, fill_value=0)
 
         hours = []
         actual = []
         predicted = []
         for index, row in result_final.iterrows():
-                hour = index.strftime("%H:%M")
-                hours.append(hour)
-                actual.append(round(float(row["total_power"]), 2))
-                predicted.append(0)
+            local_hour = index.tz_convert('Asia/Shanghai').strftime("%H:%M")
+            hours.append(local_hour)
+
+            actual.append(round(5 * float(row["total_power"]) / 1000000, 2))
+            predicted.append(0)
         
         return PowerComparison(hours=hours, actual=actual, predicted=predicted)
     except Exception as e:
