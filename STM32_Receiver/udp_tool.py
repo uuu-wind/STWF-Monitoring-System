@@ -73,6 +73,18 @@ class UDPTool:
                 send_sock.sendto(self.request_data, (ip, self.target_port))
                 print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] "
                       f"📤 发送请求 | 目标：{ip}:{self.target_port} | 数据：{self.request_data.hex().upper()}")
+                
+                # 发送后递增超时计数
+                import main
+                if ip in main.Target_IPs and len(main.Target_IPs[ip]) >= 3:
+                    main.Target_IPs[ip][2] += 1
+                    # 检查是否超时
+                    if main.Target_IPs[ip][2] >= 5:
+                        if f"udp_sender_{ip}" in [job.id for job in self.scheduler.get_jobs()]:
+                            self.scheduler.remove_job(f"udp_sender_{ip}")
+                        del main.Target_IPs[ip]
+                        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] "
+                              f"⚠️ 目标 {ip} 5次无回复，已删除并取消发送任务")
                 return True
             except Exception as e:
                 print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] "
@@ -89,22 +101,8 @@ class UDPTool:
     #     )
 
     def check_timeouts(self):
-        # 检查所有IP的超时情况
-        import main
-        ips_to_remove = []
-        for ip in list(main.Target_IPs.keys()):
-            if len(main.Target_IPs[ip]) >= 3:
-                main.Target_IPs[ip][2] += 1
-                if main.Target_IPs[ip][2] >= 5:
-                    ips_to_remove.append(ip)
-        
-        # 删除超时的IP并取消发送任务
-        for ip in ips_to_remove:
-            if f"udp_sender_{ip}" in [job.id for job in self.scheduler.get_jobs()]:
-                self.scheduler.remove_job(f"udp_sender_{ip}")
-            del main.Target_IPs[ip]
-            print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}] "
-                  f"⚠️ 目标 {ip} 5次无回复，已删除并取消发送任务")
+        # 超时检查已移至udp_sender方法中，每次发送请求后检查
+        pass
 
     def deal_recv_data(self, sender_ip, recv_data, recv_time):
         # 处理接收到的数据
