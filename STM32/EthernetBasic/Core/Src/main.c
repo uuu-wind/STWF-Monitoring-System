@@ -48,7 +48,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+uint16_t dataBuf[8];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -99,7 +99,11 @@ int main(void)
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   system_init();
-  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_Base_Start(&htim1);
+  TIM1->CNT = 0;
+  
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dataBuf, 8);
+  HAL_TIM_Base_Start(&htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -161,7 +165,11 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+//void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+//{
+//  uint32_t val = 0;
+//  val = 1;
+//}
 /* USER CODE END 4 */
 
 /**

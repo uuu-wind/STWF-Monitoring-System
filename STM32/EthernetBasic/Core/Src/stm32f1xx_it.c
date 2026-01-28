@@ -56,10 +56,9 @@
 
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_adc1;
-extern TIM_HandleTypeDef htim1;
 /* USER CODE BEGIN EV */
 extern uint8_t recv_from_terminal;
-extern uint8_t socket0_send_buf[128];
+extern uint8_t socket0_send_buf[32];
 extern uint8_t socket0_send_done;
 extern uint8_t IP[4];
 extern uint8_t call_name;
@@ -215,35 +214,6 @@ void DMA1_Channel1_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Channel1_IRQn 1 */
 
   /* USER CODE END DMA1_Channel1_IRQn 1 */
-}
-
-/**
-  * @brief This function handles TIM1 update interrupt.
-  */
-void TIM1_UP_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM1_UP_IRQn 0 */
-
-  /* USER CODE END TIM1_UP_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim1);
-  /* USER CODE BEGIN TIM1_UP_IRQn 1 */
-  if(socket0_send_done == 1)
-  {
-    socket0_send_done = 0;
-    for(uint8_t i = 0;i < 128;i++)
-    {
-      switch(i)
-      {
-        case 0:socket0_send_buf[i] = 0x02;break;
-        case 1:socket0_send_buf[i] = IP[3];break;
-        case 2:socket0_send_buf[i] = call_name / 256;break;
-        case 3:socket0_send_buf[i] = call_name % 256;break;
-        default:socket0_send_buf[i] = 0;break;
-      }
-    }
-    atk_mo395q_cmd_write_send_buf_sn(ATK_MO395Q_SOCKET_0, socket0_send_buf, sizeof(socket0_send_buf));
-  }
-  /* USER CODE END TIM1_UP_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
