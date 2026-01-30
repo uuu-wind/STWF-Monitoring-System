@@ -4,13 +4,15 @@ from datetime import datetime
 # 注释掉InfluxDB相关导入，以便在没有依赖的情况下测试
 # from influx_writer import InfluxDBWriter
 
-# 移除顶部导入，避免循环导入
+# 导入数据处理器
+# 注释掉顶部导入，避免循环导入
+# from data_processor import init_data_processor, process_udp_response
 
 import multiprocessing
 
 class UDPTool:
     def __init__(self, self_port, target_port, request_data=b"\xFF", recv_buffer_size=1024, recv_timeout=0.5,
-                 influx_host="https://localhost:8181", influx_database="Wind", influx_token=None):
+                 influx_host="https://localhost:8181", influx_database="Wind", influx_token=None, config_file_path=None):
         self.self_port = self_port
         self.target_port = target_port
         self.request_data = request_data
@@ -20,6 +22,7 @@ class UDPTool:
         self.influx_host = influx_host
         self.influx_database = influx_database
         self.influx_token = influx_token
+        self.config_file_path = config_file_path
 
         self.influx_writer = None
         self.scheduler = None  # 移到udp_receiver方法内部创建
@@ -30,12 +33,36 @@ class UDPTool:
         # 导入scheduler模块
         from apscheduler.schedulers.background import BackgroundScheduler
         
-        # 注释掉InfluxDB初始化，以便在没有依赖的情况下测试
-        # self.influx_writer = InfluxDBWriter(
-        #     host=self.influx_host,
-        #     database=self.influx_database,
-        #     token=self.influx_token
-        # )
+        # 导入数据处理器
+        from data_processor import init_data_processor
+        
+        # 初始化数据处理器
+        if self.config_file_path:
+            init_data_processor(self.config_file_path)
+            print(f"✅ 数据处理器初始化成功，配置文件: {self.config_file_path}")
+        
+        # 导入InfluxDBWriter
+        try:
+            from influx_writer import InfluxDBWriter
+            # 初始化InfluxDBWriter
+            self.influx_writer = InfluxDBWriter(
+                host=self.influx_host,
+                database=self.influx_database,
+                token=self.influx_token
+            )
+            print(f"✅ InfluxDBWriter初始化成功，数据库: {self.influx_database}")
+        except ImportError:
+            print("⚠️ InfluxDBWriter导入失败，将使用模拟实现")
+            # 创建模拟的InfluxDBWriter实例
+            class MockInfluxDBWriter:
+                def write_data(self, measurement, tags=None, fields=None, time=None):
+                    print(f"模拟写入数据:")
+                    print(f"  测量: {measurement}")
+                    print(f"  标签: {tags}")
+                    print(f"  字段: {fields}")
+                    print(f"  时间: {time}")
+                    return True
+            self.influx_writer = MockInfluxDBWriter()
         
         # 在进程内部创建scheduler实例
         self.scheduler = BackgroundScheduler(timezone="Asia/Shanghai")
@@ -111,8 +138,17 @@ class UDPTool:
         recv_list = list(recv_data)
         if(recv_list[0] == 1):
             # 客户端的回复数据
-            # 注释掉InfluxDB写入，以便在没有依赖的情况下测试
-            # self._write_to_influx(sender_ip, recv_data, recv_time)
+            # 导入数据处理函数
+            from data_processor import process_udp_response
+            
+            # 处理并写入数据
+            if self.influx_writer:
+                success = process_udp_response(self.influx_writer, recv_list, sender_ip, recv_time)
+                if success:
+                    print(f"✅ 数据写入成功 | 来源：{sender_ip}")
+                else:
+                    print(f"❌ 数据写入失败 | 来源：{sender_ip}")
+            
             # 重置超时计数
             if sender_ip in main.Target_IPs and len(main.Target_IPs[sender_ip]) >= 3:
                 main.Target_IPs[sender_ip][2] = 0

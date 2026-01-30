@@ -23,7 +23,7 @@
             <el-button type="primary" :icon="Refresh" @click="refreshData">
               刷新数据
             </el-button>
-            <el-button :icon="Setting">
+            <el-button :icon="Setting" @click="navigateToSettings">
               系统设置
             </el-button>
             <el-select v-model="selectedTurbine" placeholder="选择风机" clearable @change="navigateToTurbine">
@@ -349,6 +349,11 @@ export default {
       if (turbineId) {
         router.push(`/local-analysis/${turbineId}`)
       }
+    }
+
+    // 跳转到设置页面
+    const navigateToSettings = () => {
+      router.push('/settings')
     }
 
     // 初始化故障饼状图
@@ -895,7 +900,8 @@ export default {
       threeJsContainer,
       formatPower,
       refreshData,
-      navigateToTurbine
+      navigateToTurbine,
+      navigateToSettings
     }
   }
 }

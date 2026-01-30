@@ -1,0 +1,250 @@
+{
+  "0": {
+    "class_id": 0,
+    "database": "windfarm",
+    "channels": [
+      {
+        "column": "channel_0",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_1",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_2",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_3",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_4",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_5",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_6",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_7",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      }
+    ]
+  },
+  "1": {
+    "class_id": 1,
+    "database": "turbine_data_1",
+    "channels": [
+      {
+        "column": "temperature",
+        "range": {
+          "min": -40,
+          "max": 125
+        }
+      },
+      {
+        "column": "pressure",
+        "range": {
+          "min": 0,
+          "max": 1000
+        }
+      },
+      {
+        "column": "humidity",
+        "range": {
+          "min": 0,
+          "max": 100
+        }
+      },
+      {
+        "column": "vibration",
+        "range": {
+          "min": 0,
+          "max": 100
+        }
+      },
+      {
+        "column": "speed",
+        "range": {
+          "min": 0,
+          "max": 3000
+        }
+      },
+      {
+        "column": "current",
+        "range": {
+          "min": 0,
+          "max": 100
+        }
+      },
+      {
+        "column": "voltage",
+        "range": {
+          "min": 0,
+          "max": 1000
+        }
+      },
+      {
+        "column": "power",
+        "range": {
+          "min": 0,
+          "max": 10000
+        }
+      }
+    ]
+  },
+  "2": {
+    "class_id": 2,
+    "database": "turbine_data_2",
+    "channels": [
+      {
+        "column": "channel_0",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_1",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_2",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_3",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_4",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_5",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_6",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      },
+      {
+        "column": "channel_7",
+        "range": {
+          "min": 0,
+          "max": 65535
+        }
+      }
+    ]
+  },
+  "3": {
+    "class_id": 3,
+    "database": "123",
+    "channels": [
+      {
+        "column": "12345",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      },
+      {
+        "column": "",
+        "range": {
+          "min": 0.0,
+          "max": 65535.0
+        }
+      }
+    ]
+  }
+}

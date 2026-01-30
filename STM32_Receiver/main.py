@@ -51,7 +51,8 @@ def main():
         request_data=Request_Data,
         influx_host="http://localhost:8181",
         influx_database="Wind",
-        influx_token="apiv3_3dK1l9XS8U5woahz6rmuIxfjT_3_0StOLWQjxilRN5OT4ph_b0ZwKWj5m4Z-pQL5u18haoq5HzzNIopBo-A-yA"
+        influx_token="apiv3_3dK1l9XS8U5woahz6rmuIxfjT_3_0StOLWQjxilRN5OT4ph_b0ZwKWj5m4Z-pQL5u18haoq5HzzNIopBo-A-yA",
+        config_file_path="../frontend/public/config.json"
     )
 
     recv_process = multiprocessing.Process(target=udp_tool.udp_receiver, args=(exit_event, shared_udp_data), daemon=True)

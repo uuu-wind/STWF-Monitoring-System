@@ -5,6 +5,7 @@ from influxdb_client_3 import (
     WriteOptions, write_client_options
 )
 import os
+import json
 from dotenv import load_dotenv
 import pandas as pd
 from pydantic import BaseModel
@@ -866,6 +867,70 @@ def write_test_data():
     except Exception as e:
         import traceback
         return {"message": f"Test data write failed: {str(e)}", "error": traceback.format_exc()}
+
+# 配置文件相关API
+CONFIG_FILE_PATH = "../STM32_Receiver/config.json"
+
+class ChannelConfig(BaseModel):
+    column: str
+    range: Dict[str, float]
+
+class ClassConfig(BaseModel):
+    class_id: int
+    database: str
+    channels: List[ChannelConfig]
+
+@app.get("/api/config/{class_id}")
+def get_config(class_id: int):
+    """获取指定组号的配置"""
+    try:
+        if not os.path.exists(CONFIG_FILE_PATH):
+            return {"error": "配置文件不存在"}
+        
+        with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        if str(class_id) in config:
+            return config[str(class_id)]
+        else:
+            return {"error": f"组号 {class_id} 的配置不存在"}
+    except Exception as e:
+        return {"error": f"读取配置失败: {str(e)}"}
+
+@app.put("/api/config/{class_id}")
+def save_config(class_id: int, config: ClassConfig):
+    """保存/更新指定组号的配置"""
+    try:
+        # 读取现有配置
+        if os.path.exists(CONFIG_FILE_PATH):
+            with open(CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+                full_config = json.load(f)
+        else:
+            full_config = {}
+        
+        # 更新指定组号的配置
+        full_config[str(class_id)] = {
+            "class_id": class_id,
+            "database": config.database,
+            "channels": [
+                {
+                    "column": channel.column,
+                    "range": {
+                        "min": channel.range.get("min", 0),
+                        "max": channel.range.get("max", 65535)
+                    }
+                }
+                for channel in config.channels
+            ]
+        }
+        
+        # 保存到文件
+        with open(CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(full_config, f, indent=2, ensure_ascii=False)
+        
+        return {"message": f"组号 {class_id} 的配置已保存"}
+    except Exception as e:
+        return {"error": f"保存配置失败: {str(e)}"}
 
 if __name__ == "__main__":
     import uvicorn
