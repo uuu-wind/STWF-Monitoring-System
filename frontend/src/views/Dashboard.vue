@@ -171,7 +171,7 @@ import {
 // 导入Three.js库
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
 // API基础URL
 const API_BASE_URL = 'http://localhost:8000/api'
@@ -739,47 +739,42 @@ export default {
       controls.minDistance = 2
       controls.maxDistance = 20
 
-      // 加载STL模型
-      const loader = new STLLoader()
+      // 加载GLB模型
+      const loader = new GLTFLoader()
       loader.load(
-        '/src/assets/fans/总装配.stl',
-        (geometry) => {
+        '/fans/Scene1.glb',
+        (gltf) => {
           if (isUnmounted) return
-          // 创建材质
-          const material = new THREE.MeshStandardMaterial({ 
-            color: 0xFFFFFF, 
-            roughness: 0.4, 
-            metalness: 0.3 
-          })
           
-          // 创建网格
-          const mesh = new THREE.Mesh(geometry, material)
+          // 获取模型
+          const model = gltf.scene
           
           // 调整模型位置和缩放
-          mesh.position.set(-10.1, 0, -10.5)
-          mesh.scale.set(0.002, 0.002, 0.002) // 根据模型大小调整缩放
+          // model.position.set(-10.1, 0, -10.5)
+          model.position.set(-6.425, 0, -6.425)
+          model.scale.set(0.25, 0.25, 0.25) // 根据模型大小调整缩放
           
           // 添加到场景
-          scene.add(mesh)
+          scene.add(model)
           
           // 调整相机位置以更好地查看模型
-          camera.position.z = 5
-          camera.position.x = -9
-          camera.position.y = 3.5
+          camera.position.z = 3
+          camera.position.x = -5
+          camera.position.y = 1.5
         },
         (xhr) => {
           console.log((xhr.loaded / xhr.total * 100) + '% loaded')
         },
         (error) => {
-          console.error('Error loading STL file:', error)
+          console.error('Error loading GLB file:', error)
         }
       )
 
       // 添加光源
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
       scene.add(ambientLight)
       
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
       directionalLight.position.set(5, 10, 5)
       scene.add(directionalLight)
 
