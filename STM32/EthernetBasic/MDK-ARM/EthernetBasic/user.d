@@ -26,4 +26,5 @@ ethernetbasic/user.o: ..\Core\Src\user.c ..\Core\Inc\user.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_uart.h \
   ..\Drivers\SYSTEM\delay.h ..\Drivers\BSP\atk_mo395q.h \
   ..\Drivers\BSP\atk_mo395q_cmd.h ..\Drivers\BSP\atk_mo395q_spi.h \
-  ..\Core\Inc\usart.h ..\Core\Inc\adc.h ..\Core\Inc\tim.h
+  ..\Core\Inc\usart.h ..\Core\Inc\adc.h ..\Core\Inc\tim.h \
+  ..\Drivers\BSP\OLED.h

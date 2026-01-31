@@ -27,7 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +49,9 @@
 
 /* USER CODE BEGIN PV */
 uint16_t dataBuf[8];
+uint8_t string[16];
+
+extern uint8_t call_name, data_type;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -104,6 +107,12 @@ int main(void)
   
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)&dataBuf, 8);
   HAL_TIM_Base_Start(&htim3);
+  
+  OLED_Init();
+  OLED_Clear();
+  sprintf((char *)string, "No:%d, CH:%d", call_name, data_type);
+  OLED_ShowString(0, 0, string, 16, 1);
+  OLED_ShowString(0, 2, (uint8_t *)"Developer", 16, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */

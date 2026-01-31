@@ -27,4 +27,4 @@ ethernetbasic/gpio.o: ..\Core\Src\gpio.c ..\Core\Inc\gpio.h \
   ..\Drivers\SYSTEM\delay.h ..\Core\Inc\user.h \
   ..\Drivers\BSP\atk_mo395q.h ..\Drivers\BSP\atk_mo395q_cmd.h \
   ..\Drivers\BSP\atk_mo395q_spi.h ..\Core\Inc\usart.h ..\Core\Inc\adc.h \
-  ..\Core\Inc\tim.h
+  ..\Core\Inc\tim.h ..\Drivers\BSP\OLED.h

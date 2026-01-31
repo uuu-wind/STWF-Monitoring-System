@@ -8,8 +8,8 @@ uint8_t IP[4] = {192,168,1,23}, GWIP[4] = {192,168,1,1}, Mask[4] = {255,255,255,
 uint8_t socket0_send_buf[32];
 uint8_t socket0_recv_buf[1024];
 uint8_t socket0_send_done = 1;
-uint8_t call_name = 1;
-uint8_t data_type = 1;
+uint8_t call_name = 255;
+uint8_t data_type = 255;
 uint8_t status = 0;
 
 extern uint16_t dataBuf[8];

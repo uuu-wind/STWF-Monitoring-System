@@ -26,4 +26,5 @@ ethernetbasic/atk_mo395q.o: ..\Drivers\BSP\atk_mo395q.c \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_tim_ex.h \
   ..\Drivers\STM32F1xx_HAL_Driver\Inc\stm32f1xx_hal_uart.h \
   ..\Drivers\SYSTEM\delay.h ..\Core\Inc\user.h ..\Core\Inc\usart.h \
-  ..\Core\Inc\adc.h ..\Core\Inc\tim.h ..\Drivers\BSP\atk_mo395q_spi.h
+  ..\Core\Inc\adc.h ..\Core\Inc\tim.h ..\Drivers\BSP\OLED.h \
+  ..\Drivers\BSP\atk_mo395q_spi.h

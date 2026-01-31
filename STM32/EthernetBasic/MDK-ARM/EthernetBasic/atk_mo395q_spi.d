@@ -28,4 +28,4 @@ ethernetbasic/atk_mo395q_spi.o: ..\Drivers\BSP\atk_mo395q_spi.c \
   ..\Drivers\SYSTEM\delay.h ..\Core\Inc\user.h \
   ..\Drivers\BSP\atk_mo395q.h ..\Drivers\BSP\atk_mo395q_cmd.h \
   ..\Core\Inc\usart.h ..\Core\Inc\adc.h ..\Core\Inc\tim.h \
-  ..\Core\Inc\spi.h
+  ..\Drivers\BSP\OLED.h ..\Core\Inc\spi.h

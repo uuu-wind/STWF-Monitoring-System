@@ -33,6 +33,7 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "delay.h"
 #include "user.h"
+#include "OLED.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -58,12 +59,31 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define BTN1_Pin GPIO_PIN_2
+#define BTN1_GPIO_Port GPIOB
+#define BTN1_EXTI_IRQn EXTI2_IRQn
 #define SPI2_INT_Pin GPIO_PIN_10
 #define SPI2_INT_GPIO_Port GPIOB
 #define SPI2_RST_Pin GPIO_PIN_11
 #define SPI2_RST_GPIO_Port GPIOB
 #define SPI2_CS_Pin GPIO_PIN_12
 #define SPI2_CS_GPIO_Port GPIOB
+#define BTN3_Pin GPIO_PIN_11
+#define BTN3_GPIO_Port GPIOA
+#define BTN3_EXTI_IRQn EXTI15_10_IRQn
+#define BTN4_Pin GPIO_PIN_12
+#define BTN4_GPIO_Port GPIOA
+#define BTN4_EXTI_IRQn EXTI15_10_IRQn
+#define BTN5_Pin GPIO_PIN_15
+#define BTN5_GPIO_Port GPIOA
+#define BTN5_EXTI_IRQn EXTI15_10_IRQn
+#define BTN2_Pin GPIO_PIN_5
+#define BTN2_GPIO_Port GPIOB
+#define BTN2_EXTI_IRQn EXTI9_5_IRQn
+#define SCL_Pin GPIO_PIN_6
+#define SCL_GPIO_Port GPIOB
+#define SDA_Pin GPIO_PIN_7
+#define SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 

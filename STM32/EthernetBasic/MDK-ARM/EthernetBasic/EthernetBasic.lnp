@@ -31,6 +31,7 @@
 "ethernetbasic\atk_mo395q.o"
 "ethernetbasic\atk_mo395q_cmd.o"
 "ethernetbasic\atk_mo395q_spi.o"
+"ethernetbasic\oled.o"
 "ethernetbasic\delay.o"
 --library_type=microlib --strict --scatter "EthernetBasic\EthernetBasic.sct"
 --summary_stderr --info summarysizes --map --load_addr_map_info --xref --callgraph --symbols
