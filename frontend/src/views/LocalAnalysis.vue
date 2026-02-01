@@ -227,7 +227,7 @@ import * as echarts from 'echarts'
 import axios from 'axios'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { STLLoader } from 'three/examples/jsm/loaders/STLLoader'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { WindPower } from '@element-plus/icons-vue'
 
 // API基础URL
@@ -683,9 +683,9 @@ export default {
       const axesHelper = new THREE.AxesHelper(5)
       scene.add(axesHelper)
 
-      // 添加风机模型（加载本地STL模型）
+      // 添加风机模型（加载本地GLB模型）
       const createTurbineModel = () => {
-        const loader = new STLLoader()
+        const loader = new GLTFLoader()
         
         // 设置材质
         const towerMaterial = new THREE.MeshBasicMaterial({ color: 0x888888 })
@@ -693,12 +693,17 @@ export default {
         
         // 加载塔柱模型
         loader.load(
-          new URL('/src/assets/fans/塔柱.STL', import.meta.url).href,
-          (geometry) => {
-            const towerMesh = new THREE.Mesh(geometry, towerMaterial)
-            towerMesh.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
-            towerMesh.position.set(0, 0, 0) // 调整位置
-            scene.add(towerMesh)
+          '/fans/Tower.glb',
+          (gltf) => {
+            const towerModel = gltf.scene
+            towerModel.traverse((child) => {
+              if (child.isMesh) {
+                child.material = towerMaterial
+              }
+            })
+            towerModel.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
+            towerModel.position.set(0, 0, 0) // 调整位置
+            scene.add(towerModel)
           },
           (xhr) => {
             console.log((xhr.loaded / xhr.total * 100) + '% 塔柱模型已加载')
@@ -710,23 +715,30 @@ export default {
         
         // 加载风扇模型
         loader.load(
-          new URL('/src/assets/fans/风扇2.STL', import.meta.url).href,
-          (geometry) => {
-            const fanMesh = new THREE.Mesh(geometry, fanMaterial)
-            fanMesh.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
+          '/fans/Fan.glb',
+          (gltf) => {
+            const fanModel = gltf.scene
+            fanModel.traverse((child) => {
+              if (child.isMesh) {
+                child.material = fanMaterial
+              }
+            })
+            fanModel.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
             
             // 创建父物体Group
             fanGroup = new THREE.Group()
             // 设置父物体的全局位置为0,0,0
-            fanGroup.position.set(0.43, 11.84, 0)
+            // fanGroup.position.set(0.43, 11.84, 0)
+            fanGroup.position.set(0, 11.84, 0.475)
             fanGroup.rotation.x = 0.055
             
             // 设置风扇模型相对于父物体的位置
-            fanMesh.position.set(-7.73, -8.75, 1.35)
-            // fanMesh.position.set(-7.3, 3.09, 1.35)
+            // fanModel.position.set(-7.73, -8.75, 1.35)
+            // fanModel.position.set(-7.3, 3.09, 1.35)
+            fanModel.position.set(0, 0, 0)
             
             // 将风扇模型添加到父物体中
-            fanGroup.add(fanMesh)
+            fanGroup.add(fanModel)
             
             // 将父物体添加到场景
             scene.add(fanGroup)
