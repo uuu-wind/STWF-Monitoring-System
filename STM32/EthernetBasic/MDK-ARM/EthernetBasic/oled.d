@@ -27,4 +27,5 @@ ethernetbasic/oled.o: ..\Drivers\BSP\OLED.c ..\Drivers\BSP\oled.h \
   ..\Drivers\SYSTEM\delay.h ..\Core\Inc\user.h \
   ..\Drivers\BSP\atk_mo395q.h ..\Drivers\BSP\atk_mo395q_cmd.h \
   ..\Drivers\BSP\atk_mo395q_spi.h ..\Core\Inc\usart.h ..\Core\Inc\adc.h \
-  ..\Core\Inc\tim.h ..\Drivers\BSP\font.h
+  ..\Core\Inc\tim.h ..\Core\Inc\stm32f1xx_it.h ..\Core\Inc\gpio.h \
+  ..\Drivers\BSP\font.h

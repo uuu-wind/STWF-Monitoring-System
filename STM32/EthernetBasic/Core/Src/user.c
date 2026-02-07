@@ -104,6 +104,8 @@ void system_init(void)
   atk_mo395q_socket_config(&socket_config);
   
   HAL_Delay(5000);
+  
+  Flash_Load();
 }
 
 void system_run(void)

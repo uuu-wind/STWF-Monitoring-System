@@ -27,7 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "gpio.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -37,7 +37,10 @@
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+#define FLASH_PAGE_SIZE_BYTES   (0x400U)
+#define FLASH_BASE_ADDR          (0x08000000U)
+#define FLASH_SIZE_BYTES        (64U * 1024U)
+#define FLASH_LAST_PAGE_ADDR    (FLASH_BASE_ADDR + FLASH_SIZE_BYTES - FLASH_PAGE_SIZE_BYTES)
 /* USER CODE END EC */
 
 /* Exported macro ------------------------------------------------------------*/
@@ -56,11 +59,13 @@ void DebugMon_Handler(void);
 void PendSV_Handler(void);
 void SysTick_Handler(void);
 void EXTI2_IRQHandler(void);
+void EXTI3_IRQHandler(void);
+void EXTI4_IRQHandler(void);
 void DMA1_Channel1_IRQHandler(void);
 void EXTI9_5_IRQHandler(void);
-void EXTI15_10_IRQHandler(void);
 /* USER CODE BEGIN EFP */
-
+HAL_StatusTypeDef Flash_Save();
+void Flash_Load();
 /* USER CODE END EFP */
 
 #ifdef __cplusplus

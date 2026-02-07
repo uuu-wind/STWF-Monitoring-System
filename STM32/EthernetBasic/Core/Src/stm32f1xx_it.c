@@ -61,7 +61,10 @@ extern uint8_t recv_from_terminal;
 extern uint8_t socket0_send_buf[32];
 extern uint8_t socket0_send_done;
 extern uint8_t IP[4];
-extern uint8_t call_name;
+extern uint8_t call_name, data_type;
+extern uint8_t string[16];
+
+uint8_t input_mode = 0;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -212,8 +215,36 @@ void EXTI2_IRQHandler(void)
   /* USER CODE END EXTI2_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(BTN1_Pin);
   /* USER CODE BEGIN EXTI2_IRQn 1 */
-
+  
   /* USER CODE END EXTI2_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line3 interrupt.
+  */
+void EXTI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI3_IRQn 0 */
+
+  /* USER CODE END EXTI3_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(BTN3_Pin);
+  /* USER CODE BEGIN EXTI3_IRQn 1 */
+
+  /* USER CODE END EXTI3_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line4 interrupt.
+  */
+void EXTI4_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI4_IRQn 0 */
+
+  /* USER CODE END EXTI4_IRQn 0 */
+  HAL_GPIO_EXTI_IRQHandler(BTN4_Pin);
+  /* USER CODE BEGIN EXTI4_IRQn 1 */
+
+  /* USER CODE END EXTI4_IRQn 1 */
 }
 
 /**
@@ -239,27 +270,101 @@ void EXTI9_5_IRQHandler(void)
 
   /* USER CODE END EXTI9_5_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(BTN2_Pin);
+  HAL_GPIO_EXTI_IRQHandler(BTN5_Pin);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
 
   /* USER CODE END EXTI9_5_IRQn 1 */
 }
 
-/**
-  * @brief This function handles EXTI line[15:10] interrupts.
-  */
-void EXTI15_10_IRQHandler(void)
+/* USER CODE BEGIN 1 */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
-  /* USER CODE BEGIN EXTI15_10_IRQn 0 */
-
-  /* USER CODE END EXTI15_10_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(BTN3_Pin);
-  HAL_GPIO_EXTI_IRQHandler(BTN4_Pin);
-  HAL_GPIO_EXTI_IRQHandler(BTN5_Pin);
-  /* USER CODE BEGIN EXTI15_10_IRQn 1 */
-
-  /* USER CODE END EXTI15_10_IRQn 1 */
+  delay_ms(5);
+  if(GPIO_Pin == BTN1_Pin && HAL_GPIO_ReadPin(BTN1_GPIO_Port, BTN1_Pin) == GPIO_PIN_RESET)
+  {
+    if(input_mode == 0)
+    {
+      call_name = (call_name + 1) % 256;
+      sprintf((char *)string, "%3d", call_name);
+      OLED_ShowString(24, 0, string, 16, 1);
+    }
+    else
+    {
+      data_type = (data_type + 1) % 256;
+      sprintf((char *)string, "%3d", data_type);
+      OLED_ShowString(88, 0, string, 16, 1);
+    }
+  }
+  else if(GPIO_Pin == BTN2_Pin && HAL_GPIO_ReadPin(BTN2_GPIO_Port, BTN2_Pin) == GPIO_PIN_RESET)
+  {
+    if(input_mode == 0)
+    {
+      call_name = (call_name + 255) % 256;
+      sprintf((char *)string, "%3d", call_name);
+      OLED_ShowString(24, 0, string, 16, 1);
+    }
+    else
+    {
+      data_type = (data_type + 255) % 256;
+      sprintf((char *)string, "%3d", data_type);
+      OLED_ShowString(88, 0, string, 16, 1);
+    }
+  }
+  else if(GPIO_Pin == BTN3_Pin && HAL_GPIO_ReadPin(BTN3_GPIO_Port, BTN3_Pin) == GPIO_PIN_RESET)
+  {
+    input_mode = (input_mode + 1) % 2;
+  }
+  else if(GPIO_Pin == BTN4_Pin && HAL_GPIO_ReadPin(BTN4_GPIO_Port, BTN4_Pin) == GPIO_PIN_RESET)
+  {
+    // Save
+    Flash_Save();
+    OLED_ShowString(0, 2, (uint8_t *)"Saved", 16, 1);
+  }
+  else if(GPIO_Pin == BTN5_Pin && HAL_GPIO_ReadPin(BTN5_GPIO_Port, BTN5_Pin) == GPIO_PIN_RESET)
+  {
+    // Cancel
+    Flash_Load();
+    sprintf((char *)string, "%3d", call_name);
+    OLED_ShowString(24, 0, string, 16, 1);
+    sprintf((char *)string, "%3d", data_type);
+    OLED_ShowString(88, 0, string, 16, 1);
+    OLED_ShowString(0, 2, (uint8_t *)"Loaded", 16, 1);
+  }
+  __HAL_GPIO_EXTI_CLEAR_IT(GPIO_Pin);
 }
 
-/* USER CODE BEGIN 1 */
+HAL_StatusTypeDef Flash_Save()
+{
+  HAL_StatusTypeDef status;
+  FLASH_EraseInitTypeDef eraseInit;
+  uint32_t pageError = 0;
+  
+  uint16_t packed = (uint16_t)call_name | ((uint16_t)data_type << 8);
+  HAL_FLASH_Unlock();
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_EOP | FLASH_FLAG_PGERR | FLASH_FLAG_WRPERR);
+  
+  eraseInit.TypeErase   = FLASH_TYPEERASE_PAGES;
+  eraseInit.PageAddress = FLASH_LAST_PAGE_ADDR;
+  eraseInit.NbPages     = 1;
+  
+  status = HAL_FLASHEx_Erase(&eraseInit, &pageError);
+  if(status != HAL_OK)
+  {
+    HAL_FLASH_Lock();
+    return status;
+  }
+  status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD,
+                             FLASH_LAST_PAGE_ADDR,
+                             packed);
+  
+  HAL_FLASH_Lock();
+  return status;
+}
 
+void Flash_Load()
+{
+  uint16_t packed = *(volatile uint16_t *)(FLASH_LAST_PAGE_ADDR);
+  call_name = (uint8_t)(packed & 0x00FF);
+  data_type = (uint8_t)((packed >> 8) & 0x00FF);
+}
 /* USER CODE END 1 */

@@ -3,6 +3,7 @@
 #include "usart.h"
 #include "adc.h"
 #include "tim.h"
+#include "stm32f1xx_it.h"
 
 #define SOCKET_PROTO ATK_MO395Q_SOCKET_UDP
 #define SOCKET_DES_IP_1  192
