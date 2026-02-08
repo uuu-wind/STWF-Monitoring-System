@@ -703,6 +703,7 @@ export default {
             })
             towerModel.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
             towerModel.position.set(0, 0, 0) // 调整位置
+            towerModel.rotation.set(0, 1.5708, 0)
             scene.add(towerModel)
           },
           (xhr) => {
@@ -729,7 +730,9 @@ export default {
             fanGroup = new THREE.Group()
             // 设置父物体的全局位置为0,0,0
             // fanGroup.position.set(0.43, 11.84, 0)
-            fanGroup.position.set(0, 11.84, 0.475)
+            // fanGroup.position.set(0, 11.84, 0.475)
+            fanGroup.position.set(0, 2.1, -1.58)
+            fanGroup.rotation.set(0, 3.14159, 0)
             fanGroup.rotation.x = 0.055
             
             // 设置风扇模型相对于父物体的位置
@@ -742,6 +745,45 @@ export default {
             
             // 将父物体添加到场景
             scene.add(fanGroup)
+          },
+          (xhr) => {
+            console.log((xhr.loaded / xhr.total * 100) + '% 风扇模型已加载')
+          },
+          (error) => {
+            console.error('加载风扇模型出错:', error)
+          }
+        )
+        // 加载风扇模型
+        loader.load(
+          '/fans/Fan.glb',
+          (gltf) => {
+            const fanModel2 = gltf.scene
+            fanModel2.traverse((child) => {
+              if (child.isMesh) {
+                child.material = fanMaterial
+              }
+            })
+            fanModel2.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
+            
+            // 创建父物体Group
+            fanGroup2 = new THREE.Group()
+            // 设置父物体的全局位置为0,0,0
+            // fanGroup.position.set(0.43, 11.84, 0)
+            // fanGroup.position.set(0, 11.84, 0.475)
+            fanGroup2.position.set(0, 5.225, -1.58)
+            fanGroup2.rotation.set(0, 3.14159, 0)
+            fanGroup2.rotation.x = 0.055
+            
+            // 设置风扇模型相对于父物体的位置
+            // fanModel.position.set(-7.73, -8.75, 1.35)
+            // fanModel.position.set(-7.3, 3.09, 1.35)
+            fanModel2.position.set(0, 0, 0)
+            
+            // 将风扇模型添加到父物体中
+            fanGroup2.add(fanModel2)
+            
+            // 将父物体添加到场景
+            scene.add(fanGroup2)
           },
           (xhr) => {
             console.log((xhr.loaded / xhr.total * 100) + '% 风扇模型已加载')
@@ -769,6 +811,9 @@ export default {
         // 父物体绕Z轴自转（负值表示顺时针方向）
         if (fanGroup) {
           fanGroup.rotation.z -= 0.01 // 控制旋转速度
+        }
+        if (fanGroup2) {
+          fanGroup2.rotation.z -= 0.01 // 控制旋转速度
         }
         
         controls.update()
