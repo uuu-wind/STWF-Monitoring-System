@@ -8,21 +8,14 @@
         <router-view />
       </el-main>
     </el-container>
+    
+    <!-- 智能助手 -->
+    <ChatAssistant />
   </div>
 </template>
 
-<script>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
-
-
-export default {
-  name: 'App',
-  components: {
-  },
-  setup() {
-    return {}
-  }
-}
+<script setup>
+import ChatAssistant from './components/ChatAssistant.vue'
 </script>
 
 <style>

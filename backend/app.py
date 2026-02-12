@@ -21,6 +21,9 @@ INFLUXDB_URL = "http://localhost:8181"
 INFLUXDB_TOKEN = "apiv3_q7RPi0zeY1bWYCuPnbgrlMZSvyGqXHzhJ8iFhLQBZdIxk3CFuxSqerS89l6GdeQMGgM0ICCPYB42oiOszt1l4Q"
 INFLUXDB_BUCKET = "windfarm"
 
+# Silicon 相关配置
+SILICON_API_URL = "http://localhost:8000"
+
 # 创建 FastAPI 应用
 app = FastAPI(
     title="Wind Farm Intelligent Monitoring Platform API",
@@ -931,6 +934,59 @@ def save_config(class_id: int, config: ClassConfig):
         return {"message": f"组号 {class_id} 的配置已保存"}
     except Exception as e:
         return {"error": f"保存配置失败: {str(e)}"}
+
+# 聊天助手API
+class ChatRequest(BaseModel):
+    message: str
+
+class ChatResponse(BaseModel):
+    response: str
+
+@app.post("/api/chat", response_model=ChatResponse)
+def chat_with_assistant(request: ChatRequest):
+    """智能助手交互API"""
+    try:
+        import requests
+        import json
+        
+        # 硅基流动大模型API配置
+        API_KEY = "your_api_key_here"  # 请替换为真实的API密钥
+        API_URL = "https://ark-cn-beijing.bytedance.net/api/v3/chat/completions"
+        
+        user_message = request.message
+        
+        # 构建系统提示
+        system_prompt = "你是一个专业的风电场监控系统智能助手，负责回答用户关于系统运行、配置、数据等方面的问题。请保持回答专业、准确、简洁。"
+        
+        # 构建请求数据
+        payload = {
+            "model": "ep-202602121111111111111111",  # 请替换为真实的模型ID
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1000
+        }
+        
+        # 发送请求到硅基流动API
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {API_KEY}"
+        }
+        
+        response = requests.post(API_URL, headers=headers, data=json.dumps(payload), timeout=30)
+        response.raise_for_status()  # 检查请求是否成功
+        
+        # 解析响应
+        result = response.json()
+        assistant_response = result["choices"][0]["message"]["content"]
+        
+        return ChatResponse(response=assistant_response)
+    except Exception as e:
+        print(f"Chat API error: {e}")
+        # 当API调用失败时，返回一个默认的错误响应
+        return ChatResponse(response="抱歉，我暂时无法回答您的问题，请稍后再试。")
 
 if __name__ == "__main__":
     import uvicorn
