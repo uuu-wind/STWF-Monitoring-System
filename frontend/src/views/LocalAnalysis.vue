@@ -226,9 +226,9 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import axios from 'axios'
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { WindPower } from '@element-plus/icons-vue'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader'
 
 // API基础URL
 const API_BASE_URL = 'http://localhost:8000/api'
@@ -313,7 +313,6 @@ export default {
     let scene = null
     let camera = null
     let renderer = null
-    let controls = null
     let animationId = null
     let fanGroup = null // 用于存储风扇模型的父物体，控制旋转
     let fanGroup2 = null
@@ -664,7 +663,9 @@ export default {
         0.1,
         1000
       )
-      camera.position.z = 10
+      // camera.position.z = 10
+      camera.position.set(3, 10, 6)
+      camera.lookAt(0, 5, 0)
 
       // 创建渲染器
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
@@ -796,13 +797,6 @@ export default {
 
       createTurbineModel()
 
-      // 添加控制器
-      controls = new OrbitControls(camera, renderer.domElement)
-      controls.enableDamping = true
-      controls.dampingFactor = 0.05
-      controls.minDistance = 5
-      controls.maxDistance = 30
-
       // 动画循环
       const animate = () => {
         if (isUnmounted) return
@@ -816,7 +810,6 @@ export default {
           fanGroup2.rotation.z -= 0.01 // 控制旋转速度
         }
         
-        controls.update()
         renderer.render(scene, camera)
       }
       animate()
@@ -832,15 +825,30 @@ export default {
       
       // 存储事件监听器引用，以便后续移除
       window.handleLocalThreeResize = handleThreeResize
+
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.0
+
+      const pmremGenerator = new THREE.PMREMGenerator(renderer)
+      pmremGenerator.compileEquirectangularShader()
+
+      new RGBELoader()
+        .setPath('/hdr/')
+        .load('golden_gate_hills_1k.hdr', (hdrEquirect) => {
+          const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture
+          scene.environment = envMap
+          scene.background = envMap
+          
+          hdrEquirect.dispose()
+          pmremGenerator.dispose()
+        })
     }
 
     // 清理Three.js资源
     const cleanupThreeJs = () => {
       if (animationId) {
         cancelAnimationFrame(animationId)
-      }
-      if (controls) {
-        controls.dispose()
       }
       if (renderer) {
         renderer.dispose()

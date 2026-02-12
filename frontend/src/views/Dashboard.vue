@@ -172,6 +172,7 @@ import {
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader'
 
 // API基础URL
 const API_BASE_URL = 'http://localhost:8000/api'
@@ -777,6 +778,24 @@ export default {
       const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
       directionalLight.position.set(5, 10, 5)
       scene.add(directionalLight)
+
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.0
+
+      const pmremGenerator = new THREE.PMREMGenerator(renderer)
+      pmremGenerator.compileEquirectangularShader()
+
+      new RGBELoader()
+        .setPath('/hdr/')
+        .load('golden_gate_hills_1k.hdr', (hdrEquirect) => {
+          const envMap = pmremGenerator.fromEquirectangular(hdrEquirect).texture
+          scene.environment = envMap
+          scene.background = envMap
+          
+          hdrEquirect.dispose()
+          pmremGenerator.dispose()
+        })
 
       // 动画循环
       const animate = () => {
