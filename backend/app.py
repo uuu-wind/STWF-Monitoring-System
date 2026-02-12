@@ -13,6 +13,9 @@ from typing import List, Dict, Optional
 import datetime
 import random
 
+# 导入assistant.py中的相关函数
+from assistant import get_or_build_wind_farm_kb
+
 # 加载环境变量
 load_dotenv()
 
@@ -41,6 +44,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 构建知识库
+print("正在构建风电场知识库...")
+wind_farm_kb = get_or_build_wind_farm_kb()
+if wind_farm_kb:
+    print("✅ 知识库构建成功")
+else:
+    print("⚠️ 知识库构建失败")
 
 write_options = WriteOptions(batch_size=1,
                              flush_interval=1_000,
@@ -948,41 +959,20 @@ class ChatResponse(BaseModel):
 def chat_with_assistant(request: ChatRequest):
     """智能助手交互API"""
     try:
-        import requests
-        import json
-        
-        # 硅基流动大模型API配置
-        API_KEY = SILICON_API_KEY  # 请替换为真实的API密钥
-        API_URL = SILICON_API_URL
-        
         user_message = request.message
         
-        # 构建系统提示
-        system_prompt = "你是一个专业的风电场监控系统智能助手，负责回答用户关于系统运行、配置、数据等方面的问题。请保持回答专业、准确、简洁。"
+        # 检查知识库是否构建成功
+        if not wind_farm_kb:
+            return ChatResponse(response="知识库未构建成功，暂时无法回答您的问题。")
         
-        # 构建请求数据
-        payload = {
-            "model": SILICON_API_MODEL,  # 请替换为真实的模型ID
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 1000
-        }
-        
-        # 发送请求到硅基流动API
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {API_KEY}"
-        }
-        
-        response = requests.post(API_URL, headers=headers, data=json.dumps(payload), timeout=30)
-        response.raise_for_status()  # 检查请求是否成功
-        
-        # 解析响应
-        result = response.json()
-        assistant_response = result["choices"][0]["message"]["content"]
+        # 使用知识库处理查询
+        result = wind_farm_kb.invoke({"query": user_message})
+        print("回答:", result["result"])
+        print("----命中文档片段----")
+        for i, doc in enumerate(result.get("source_documents", []), 1):
+            print(f"[{i}] {doc.metadata.get('source','')}")
+            print(doc.page_content[:200].replace("\n"," "))
+        assistant_response = result["result"]
         
         return ChatResponse(response=assistant_response)
     except Exception as e:

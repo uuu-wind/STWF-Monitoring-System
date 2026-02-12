@@ -216,7 +216,7 @@ onUnmounted(() => {
   position: fixed;
   right: 70px;
   bottom: 10px;
-  width: 20vw;
+  width: 40vw;
   height: 50vh;
   background-color: white;
   border-radius: 10px;
