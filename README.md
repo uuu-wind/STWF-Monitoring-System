@@ -44,3 +44,7 @@ A monitoring system suitable for solar thermal wind fields, developed using Vue3
   influxdata/influxdb3-ui ^
   --mode=admin
 `
+
+# 20260212修改  
+新增了启动文件，直接运行.bat文件或.sh文件即可启动  
+对于STM32部分，仍然需要验证
