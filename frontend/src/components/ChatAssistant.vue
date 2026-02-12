@@ -58,6 +58,7 @@
           v-model="inputMessage"
           placeholder="请输入您的问题..."
           @keyup.enter="sendMessage"
+          class="chat-input"
         />
         <el-button 
           type="primary"
@@ -276,7 +277,7 @@ onUnmounted(() => {
 
 .message.user .message-content {
   background-color: #409eff;
-  color: white;
+  color: #000000;
   border-bottom-right-radius: 2px;
 }
 
@@ -317,6 +318,15 @@ onUnmounted(() => {
 .chat-input-area .el-input {
   flex: 1;
   margin-right: 10px;
+}
+
+.chat-input :deep(.el-input__wrapper) {
+  background-color: #f5f7fa;
+  border-color: #dcdfe6;
+}
+
+.chat-input :deep(.el-input__inner) {
+  color: #000000;
 }
 
 /* 滚动条样式 */

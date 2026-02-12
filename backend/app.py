@@ -22,7 +22,9 @@ INFLUXDB_TOKEN = "apiv3_q7RPi0zeY1bWYCuPnbgrlMZSvyGqXHzhJ8iFhLQBZdIxk3CFuxSqerS8
 INFLUXDB_BUCKET = "windfarm"
 
 # Silicon 相关配置
-SILICON_API_URL = "http://localhost:8000"
+SILICON_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
+SILICON_API_KEY = "sk-rhtilxdcrglqhoqlzipmdqfktgikrnubnbkgbwtscukzgqwr"
+SILICON_API_MODEL = "Pro/deepseek-ai/DeepSeek-V3.2"
 
 # 创建 FastAPI 应用
 app = FastAPI(
@@ -950,8 +952,8 @@ def chat_with_assistant(request: ChatRequest):
         import json
         
         # 硅基流动大模型API配置
-        API_KEY = "your_api_key_here"  # 请替换为真实的API密钥
-        API_URL = "https://ark-cn-beijing.bytedance.net/api/v3/chat/completions"
+        API_KEY = SILICON_API_KEY  # 请替换为真实的API密钥
+        API_URL = SILICON_API_URL
         
         user_message = request.message
         
@@ -960,7 +962,7 @@ def chat_with_assistant(request: ChatRequest):
         
         # 构建请求数据
         payload = {
-            "model": "ep-202602121111111111111111",  # 请替换为真实的模型ID
+            "model": SILICON_API_MODEL,  # 请替换为真实的模型ID
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
