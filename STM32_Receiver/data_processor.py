@@ -51,8 +51,8 @@ class DataProcessor:
                 continue
             
             # 计算数据索引
-            high_idx = 4 + i * 2
-            low_idx = 5 + i * 2
+            high_idx = 4 + (7 - i) * 2
+            low_idx = 5 + (7 - i) * 2
             
             if high_idx >= len(recv_list) or low_idx >= len(recv_list):
                 continue
