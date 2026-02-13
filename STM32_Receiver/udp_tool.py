@@ -143,7 +143,7 @@ class UDPTool:
             
             # 处理并写入数据
             if self.influx_writer:
-                success = process_udp_response(self.influx_writer, recv_list, sender_ip, recv_time)
+                success = process_udp_response(self.influx_writer, recv_list, recv_time)
                 if success:
                     print(f"✅ 数据写入成功 | 来源：{sender_ip}")
                 else:
