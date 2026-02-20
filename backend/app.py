@@ -15,6 +15,8 @@ import random
 
 # 导入assistant.py中的相关函数
 from assistant import get_or_build_wind_farm_kb
+from forecast import Forecast
+from training import GBDTTrainer, TrainConfig
 
 # 加载环境变量
 load_dotenv()
@@ -77,6 +79,11 @@ wco = write_client_options(success_callback = success,
 # 创建 InfluxDB 客户端
 client = InfluxDBClient3(host=INFLUXDB_URL, token=INFLUXDB_TOKEN, database=INFLUXDB_BUCKET, write_client_options=wco)
 
+# 创建Forecast实例并启动预测任务
+forecast_engine = Forecast()
+forecast_engine._forecast_task()
+forecast_engine.start_forecast_task()
+
 # 数据模型
 class TurbineBase(BaseModel):
     id: str
@@ -116,7 +123,9 @@ class WarningStats(BaseModel):
     warning: int
 
 class PowerTrend(BaseModel):
-    power: List[float]
+    hours: List[str]
+    power: List[Optional[float]]
+    forecast: Optional[List[Optional[float]]] = None
 
 class DailyStats(BaseModel):
     totalGeneration: float
@@ -161,7 +170,7 @@ mock_turbines = [
         "name": "NW1",
         "location": "IM_Zone_A",
         "status": "running",
-        "power": 2500,
+        "power": 1500,
         "windSpeed": 12.5,
         "temperature": 28,
         "vibration": 1.2,
@@ -544,19 +553,88 @@ def get_turbine_alerts(turbine_id: str):
 def get_turbine_power_trend(turbine_id: str):
     """Get power generation trend data"""
     try:
-        query = f"SELECT * FROM turbine WHERE time > now() - INTERVAL '10min' AND turbine_id = '{turbine_id}' ORDER BY 'time' DESC"
+        now_utc = pd.Timestamp.now(tz='UTC').floor("min")
+        start_utc = now_utc - pd.Timedelta(minutes = 119)
+        end_exclusive = now_utc + pd.Timedelta(minutes = 1)
+        # query = f"SELECT * FROM turbine WHERE time >= '{start_utc_str}' AND time < '{end_exclusive_str}' AND turbine_id = '{turbine_id}' ORDER BY 'time' DESC"
+        query = f"""
+            SELECT
+                date_bin(interval '1 minute', time) AS time_bucket,
+                AVG(power) AS avg_power
+            FROM 'turbine'
+            WHERE time >= TIMESTAMP '{start_utc.strftime("%Y-%m-%d %H:%M:%S")}'
+                AND time < TIMESTAMP '{end_exclusive.strftime("%Y-%m-%d %H:%M:%S")}'
+                AND turbine_id = '{turbine_id}'
+            GROUP BY 1
+            ORDER BY 1 ASC
+        """
         result = client.query(query=query, mode="pandas")
         
-        power = []
-        for index, row in result.iterrows():
-            power.append(float(row["power"]))
+        full_range = pd.date_range(start = start_utc, periods = 120, freq = "min", tz = "UTC")
+
+        if result.empty:
+            past_hours = [t.tz_convert("Asia/Shanghai").strftime("%H:%M") for t in full_range]
+            past_power = [0.0] * len(full_range)
+        else:
+            result["time_bucket"] = pd.to_datetime(result["time_bucket"])
+            if result["time_bucket"].dt.tz is None:
+                result["time_bucket"] = result["time_bucket"].dt.tz_localize("UTC")
+            else:
+                result["time_bucket"] = result["time_bucket"].dt.tz_convert("UTC")
         
-        while len(power) < 120:
-            power.append(0.0)
+            result.set_index("time_bucket", inplace=True)
+
+            result_final = result.reindex(full_range, fill_value = 0)
+                
+            past_power = []
+            past_hours = []
+            for ts_utc, row in result_final.iterrows():
+                past_hours.append(ts_utc.tz_convert("Asia/Shanghai").strftime("%H:%M"))
+                p = row.get("avg_power", 0.0)
+                past_power.append(float(p) if pd.notna(p) else 0.0)
         
-        return PowerTrend(power=power[:120])
+        future_hours = []
+        future_power_null = []
+        forecast_series = []
+
+        try:
+            fc = forecast_engine.GetForecast()
+            fc_values = (fc or {}).get("result", [])
+            
+            while len(fc_values) < 4:
+                fc_values.append(0.0)
+            tz_bj = datetime.timezone(datetime.timedelta(hours=8))
+            now_bj = datetime.datetime.now(tz_bj).replace(minute = 0, second = 0, microsecond = 0)
+
+            for i in range(1, 5):
+                t = now_bj + datetime.timedelta(hours = i)
+                future_hours.append(t.strftime('%H:%M'))
+            
+            future_power_null = [None] * 4
+            forecast_series = [None] * len(past_power)
+
+            if len(past_power) > 0:
+                forecast_series[-1] = past_power[-1]
+            
+            for i in range(4):
+                forecast_series.append(float(fc_values[i]))
+        except Exception as e:
+            print(f"Forecast data error: {e}")
+            future_hours = []
+            future_power_null = []
+            forecast_series = [None] * len(past_power)
+
+        hours = past_hours + future_hours
+        power = past_power + future_power_null
+
+        return PowerTrend(hours=hours, power=power, forecast=forecast_series)
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
+        return{
+            "hours": [],
+            "power": [],
+            "forecast": []
+        }
 
 # 统计数据API
 @app.get("/api/stats/daily", response_model=DailyStats)
@@ -886,6 +964,7 @@ def write_test_data():
 
 # 配置文件相关API
 CONFIG_FILE_PATH = "../STM32_Receiver/config.json"
+AI_CONFIG_FILE_PATH = "../backend/config.json"
 
 class ChannelConfig(BaseModel):
     column: str
@@ -947,6 +1026,111 @@ def save_config(class_id: int, config: ClassConfig):
         return {"message": f"组号 {class_id} 的配置已保存"}
     except Exception as e:
         return {"error": f"保存配置失败: {str(e)}"}
+
+# AI配置相关API
+class AIConfigRequest(BaseModel):
+    latitude: str
+    longitude: str
+    turbine_orientation: str
+
+@app.get("/api/ai/config")
+def get_ai_config():
+    """获取AI配置"""
+    try:
+        if not os.path.exists(AI_CONFIG_FILE_PATH):
+            return {"latitude": "", "longitude": "", "turbine_orientation": ""}
+        
+        with open(AI_CONFIG_FILE_PATH, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        return {
+            "latitude": config.get("latitude", ""),
+            "longitude": config.get("longitude", ""),
+            "turbine_orientation": config.get("turbine_orientation", "")
+        }
+    except Exception as e:
+        return {"error": f"读取AI配置失败: {str(e)}"}
+
+@app.put("/api/ai/config")
+def save_ai_config(config: AIConfigRequest):
+    """保存AI配置"""
+    try:
+        ai_config = {
+            "latitude": config.latitude,
+            "longitude": config.longitude,
+            "turbine_orientation": config.turbine_orientation
+        }
+        
+        with open(AI_CONFIG_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(ai_config, f, indent=2, ensure_ascii=False)
+        
+        return {"message": "AI配置已保存"}
+    except Exception as e:
+        return {"error": f"保存AI配置失败: {str(e)}"}
+
+# 模型训练API
+class TrainRequest(BaseModel):
+    turbine_id: str = "T001"
+    use_test_data: bool = False
+
+class TrainResponse(BaseModel):
+    success: bool
+    message: str
+    turbine_id: str
+    rows: Optional[int] = None
+    mae: Optional[float] = None
+    rmse: Optional[float] = None
+    r2: Optional[float] = None
+    model_weight: Optional[float] = None
+
+@app.post("/api/ai/train", response_model=TrainResponse)
+def train_model(request: TrainRequest):
+    """训练AI模型"""
+    try:
+        print(f"[{datetime.datetime.now()}] 开始训练模型，turbine_id={request.turbine_id}, use_test_data={request.use_test_data}")
+        
+        cfg = TrainConfig(
+            influx_url=INFLUXDB_URL,
+            influx_token=INFLUXDB_TOKEN,
+            influx_database=INFLUXDB_BUCKET,
+            lookback_days=7,
+            model_dir=os.path.join(os.path.dirname(os.path.abspath(__file__)), "models"),
+        )
+        
+        trainer = GBDTTrainer(cfg)
+        report = trainer.train(turbine_id=request.turbine_id, use_test_data=request.use_test_data)
+        
+        print(f"[{datetime.datetime.now()}] 模型训练完成: {report}")
+        
+        # 读取训练后的权重
+        model_weight = None
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            config_file = os.path.join(current_dir, "config.json")
+            if os.path.exists(config_file):
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    model_weight = config.get("model_weight")
+        except Exception as e:
+            print(f"读取权重失败: {e}")
+        
+        return TrainResponse(
+            success=True,
+            message="模型训练成功",
+            turbine_id=report.get("turbine_id", request.turbine_id),
+            rows=report.get("rows"),
+            mae=report.get("mae"),
+            rmse=report.get("rmse"),
+            r2=report.get("r2"),
+            model_weight=model_weight
+        )
+    except Exception as e:
+        print(f"[{datetime.datetime.now()}] 模型训练失败: {e}")
+        return TrainResponse(
+            success=False,
+            message=f"模型训练失败: {str(e)}",
+            turbine_id=request.turbine_id
+        )
 
 # 聊天助手API
 class ChatRequest(BaseModel):

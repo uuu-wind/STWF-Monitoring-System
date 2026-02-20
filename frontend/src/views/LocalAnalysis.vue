@@ -481,9 +481,10 @@ export default {
           borderWidth: 1
         },
         grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
+          top: '30%',
+          left: '1%',
+          right: '1%',
+          bottom: '1%',
           containLabel: true
         },
         xAxis: [
@@ -555,6 +556,14 @@ export default {
               }
             },
             data: powerTrend.value.power || []
+          },
+          {
+            name: '预测出力',
+            type: 'line',
+            smooth: true,
+            data: powerTrend.value.forecast,
+            lineStyle: { color: "#FFD700", width: 2 },
+            itemStyle: { color: "#FFD700" }
           }
         ]
       }
@@ -1294,15 +1303,36 @@ export default {
   flex-direction: column;
 }
 
-.chart-container {
+.chart-item :deep(.el-card__body) {
   flex: 1;
-  padding: 5px 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 10px;
 }
 
-.chart {
+/* .chart-container {
+  flex: 1;
+  padding: 5px 0;
+} */
+ .chart-container {
+  flex: 1;
+  min-height: 0;
+  overflow: hiddel;
+  padding: 0;
+ }
+
+/* .chart {
   width: 300px;
   height: 100px;
-}
+} */
+ .chart {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+ }
 
 /* 风速风向罗盘 */
 .wind-compass {
