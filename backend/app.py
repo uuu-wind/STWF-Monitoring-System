@@ -970,10 +970,15 @@ class ChannelConfig(BaseModel):
     column: str
     range: Dict[str, float]
 
+class CalculateConfig(BaseModel):
+    column: str
+    function: str
+
 class ClassConfig(BaseModel):
     class_id: int
     database: str
     channels: List[ChannelConfig]
+    calculate: List[CalculateConfig]
 
 @app.get("/api/config/{class_id}")
 def get_config(class_id: int):
@@ -1016,6 +1021,13 @@ def save_config(class_id: int, config: ClassConfig):
                     }
                 }
                 for channel in config.channels
+            ],
+            "calculate": [
+                {
+                    "column": calc.column,
+                    "function": calc.function
+                }
+                for calc in config.calculate
             ]
         }
         

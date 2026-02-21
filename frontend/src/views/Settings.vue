@@ -99,6 +99,38 @@
             </div>
           </div>
 
+          <!-- 计算通道设置 -->
+          <div class="setting-row calculate-section">
+            <h3>计算通道设置</h3>
+            <div 
+              v-for="(calc, index) in classConfig.calculate" 
+              :key="index"
+              class="row calculate-row"
+            >
+              <div class="col-6">
+                <label class="form-label">计算通道 {{ index + 1 }} - 数据列名</label>
+                <input 
+                  v-model="calc.column" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="请输入计算结果的列名"
+                >
+              </div>
+              <div class="col-6">
+                <label class="form-label">计算表达式</label>
+                <input 
+                  v-model="calc.function" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: CH0+CH2+3*(CH4+5)"
+                >
+                <small class="form-text text-muted">
+                  支持通道引用(CH0-CH7)、四则运算和小括号
+                </small>
+              </div>
+            </div>
+          </div>
+
           <!-- 保存按钮 -->
           <div class="save-button-container">
             <button 
@@ -216,6 +248,10 @@ const classConfig = reactive({
       min: 0,
       max: 65535
     }
+  })),
+  calculate: Array.from({ length: 2 }, () => ({
+    column: '',
+    function: ''
   }))
 })
 
@@ -248,17 +284,19 @@ const loadClassConfig = async () => {
     
     if (data.error) {
       console.error('配置错误:', data.error)
-      // 如果配置不存在，重置为默认值
       classConfig.database = ''
       classConfig.channels.forEach(channel => {
         channel.column = ''
         channel.range.min = 0
         channel.range.max = 65535
       })
+      classConfig.calculate.forEach(calc => {
+        calc.column = ''
+        calc.function = ''
+      })
     } else {
       classConfig.database = data.database || ''
       
-      // 更新通道配置
       data.channels.forEach((channel, index) => {
         if (index < classConfig.channels.length) {
           classConfig.channels[index].column = channel.column || ''
@@ -266,15 +304,32 @@ const loadClassConfig = async () => {
           classConfig.channels[index].range.max = channel.range?.max || 65535
         }
       })
+      
+      if (data.calculate && Array.isArray(data.calculate)) {
+        data.calculate.forEach((calc, index) => {
+          if (index < classConfig.calculate.length) {
+            classConfig.calculate[index].column = calc.column || ''
+            classConfig.calculate[index].function = calc.function || ''
+          }
+        })
+      } else {
+        classConfig.calculate.forEach(calc => {
+          calc.column = ''
+          calc.function = ''
+        })
+      }
     }
   } catch (error) {
     console.error('Error loading config:', error)
-    // 如果加载失败，重置为默认值
     classConfig.database = ''
     classConfig.channels.forEach(channel => {
       channel.column = ''
       channel.range.min = 0
       channel.range.max = 65535
+    })
+    classConfig.calculate.forEach(calc => {
+      calc.column = ''
+      calc.function = ''
     })
   }
 }
@@ -290,7 +345,8 @@ const saveConfig = async () => {
       body: JSON.stringify({
         class_id: selectedClassId.value,
         database: classConfig.database,
-        channels: classConfig.channels
+        channels: classConfig.channels,
+        calculate: classConfig.calculate
       })
     })
     
@@ -464,6 +520,18 @@ const trainModel = async () => {
   padding: 15px;
   background-color: #f8f9fa;
   border-radius: 8px;
+}
+
+.calculate-section {
+  margin-top: 30px;
+}
+
+.calculate-row {
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
 }
 
 .save-button-container {

@@ -121,6 +121,16 @@
           "max": 10000
         }
       }
+    ],
+    "calculate": [
+      {
+        "column": "efficiency",
+        "function": "CH7/(CH5*CH6)*100"
+      },
+      {
+        "column": "total_load",
+        "function": "CH0+CH1+CH2+CH3"
+      }
     ]
   },
   "2": {
@@ -244,6 +254,16 @@
           "min": 0.0,
           "max": 65535.0
         }
+      }
+    ],
+    "calculate": [
+      {
+        "column": "calculated_value",
+        "function": "CH0+CH2+3*(CH4+5)"
+      },
+      {
+        "column": "average",
+        "function": "(CH0+CH1+CH2+CH3)/4"
       }
     ]
   }

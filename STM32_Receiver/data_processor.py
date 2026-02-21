@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from influx_writer import InfluxDBWriter
 
 class DataProcessor:
@@ -19,15 +20,31 @@ class DataProcessor:
             raise ValueError(f"配置文件中不存在类ID: {class_id}")
         return self.config_data[str(class_id)]
     
+    def calculate_expression(self, expression, channel_values):
+        try:
+            expr = expression.upper()
+            
+            for i in range(8):
+                ch_key = f"CH{i}"
+                if ch_key in expr:
+                    if i in channel_values:
+                        expr = expr.replace(ch_key, str(channel_values[i]))
+                    else:
+                        expr = expr.replace(ch_key, "0")
+            
+            result = eval(expr)
+            return float(result)
+        except Exception as e:
+            print(f"计算表达式错误: {expression}, 错误: {e}")
+            return None
+    
     def process_udp_data(self, influx_writer, recv_list, recv_time):
         if len(recv_list) < 4:
             return False
         
-        # 获取数据
         turbine_id = recv_list[2]
         class_id = recv_list[3]
         
-        # 获取配置
         try:
             class_config = self.get_class_config(class_id)
         except ValueError as e:
@@ -37,8 +54,9 @@ class DataProcessor:
         database_name = class_config['database']
         channels = class_config['channels']
         
-        # 提取8个通道的数据
         fields = {}
+        channel_values = {}
+        
         for i in range(8):
             if i >= len(channels):
                 break
@@ -50,27 +68,40 @@ class DataProcessor:
             if channel_config['column'] == "":
                 continue
             
-            # 计算数据索引
             high_idx = 4 + (7 - i) * 2
             low_idx = 5 + (7 - i) * 2
             
             if high_idx >= len(recv_list) or low_idx >= len(recv_list):
                 continue
             
-            # 组合高低位数据
             high = recv_list[high_idx]
             low = recv_list[low_idx]
             value = (high << 8) | low
             
-            # 应用数据范围
             if 'range' in channel_config:
                 min_val = channel_config['range'].get('min', 0)
                 max_val = channel_config['range'].get('max', 65535)
                 value = value / 4096.0 * (max_val - min_val) + min_val
             
             fields[channel_config['column']] = value
+            channel_values[i] = value
         
-        # 写入InfluxDB
+        if 'calculate' in class_config:
+            calculate_configs = class_config['calculate']
+            for calc_config in calculate_configs:
+                if not calc_config or 'column' not in calc_config or 'function' not in calc_config:
+                    continue
+                
+                column = calc_config['column']
+                function = calc_config['function']
+                
+                if column == "" or function == "":
+                    continue
+                
+                result = self.calculate_expression(function, channel_values)
+                if result is not None:
+                    fields[column] = result
+        
         if fields:
             measurement = database_name
             tags = {
