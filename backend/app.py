@@ -22,14 +22,14 @@ from training import GBDTTrainer, TrainConfig
 load_dotenv()
 
 # InfluxDB 连接配置
-INFLUXDB_URL = "http://localhost:8181"
-INFLUXDB_TOKEN = "apiv3_q7RPi0zeY1bWYCuPnbgrlMZSvyGqXHzhJ8iFhLQBZdIxk3CFuxSqerS89l6GdeQMGgM0ICCPYB42oiOszt1l4Q"
-INFLUXDB_BUCKET = "windfarm"
+INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8181")
+INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "apiv3_EOFdkIZBSFqmH4Cn7TymCYrl8Hht1npEe9vTOD8zOXtNnFQj5uDsUzFDKzDwGmO2qfoxD0nZPg61AUnBrxlPfg")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "windfarm")
 
 # Silicon 相关配置
-SILICON_API_URL = "https://api.siliconflow.cn/v1/chat/completions"
-SILICON_API_KEY = "sk-rhtilxdcrglqhoqlzipmdqfktgikrnubnbkgbwtscukzgqwr"
-SILICON_API_MODEL = "Pro/deepseek-ai/DeepSeek-V3.2"
+SILICON_API_URL = os.getenv("SILICON_API_URL", "https://api.siliconflow.cn/v1/chat/completions")
+SILICON_API_KEY = os.getenv("SILICON_API_KEY", "sk-rhtilxdcrglqhoqlzipmdqfktgikrnubnbkgbwtscukzgqwr")
+SILICON_API_MODEL = os.getenv("SILICON_API_MODEL", "Pro/deepseek-ai/DeepSeek-V3.2")
 
 # 创建 FastAPI 应用
 app = FastAPI(

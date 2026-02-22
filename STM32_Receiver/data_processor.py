@@ -6,14 +6,15 @@ from influx_writer import InfluxDBWriter
 class DataProcessor:
     def __init__(self, config_file_path):
         self.config_file_path = config_file_path
-        self.config_data = self.load_config()
+        self.config_data = None
     
     def load_config(self):
         if not os.path.exists(self.config_file_path):
             raise FileNotFoundError(f"配置文件不存在: {self.config_file_path}")
         
         with open(self.config_file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            self.config_data = json.load(f)
+        return self.config_data
     
     def get_class_config(self, class_id):
         if str(class_id) not in self.config_data:
@@ -46,6 +47,7 @@ class DataProcessor:
         class_id = recv_list[3]
         
         try:
+            self.load_config()
             class_config = self.get_class_config(class_id)
         except ValueError as e:
             print(f"配置错误: {e}")
@@ -105,8 +107,9 @@ class DataProcessor:
         if fields:
             measurement = database_name
             tags = {
-                "turbine_id": str(turbine_id)
+                "turbine_id": f"T{turbine_id:03d}"
             }
+            print(f"写入数据: {measurement}, {tags}, {fields}, {recv_time}")
             
             return influx_writer.write_data(
                 measurement=measurement,
