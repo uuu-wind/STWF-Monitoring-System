@@ -573,7 +573,7 @@ def get_turbine_power_trend(turbine_id: str):
         full_range = pd.date_range(start = start_utc, periods = 120, freq = "min", tz = "UTC")
 
         if result.empty:
-            past_hours = [t.tz_convert("Asia/Shanghai").strftime("%H:%M") for t in full_range]
+            past_hours = [t.tz_convert("Asia/Shanghai").strftime("%m-%d %H:%M") for t in full_range]
             past_power = [0.0] * len(full_range)
         else:
             result["time_bucket"] = pd.to_datetime(result["time_bucket"])
@@ -586,10 +586,10 @@ def get_turbine_power_trend(turbine_id: str):
 
             result_final = result.reindex(full_range, fill_value = 0)
                 
-            past_power = []
             past_hours = []
+            past_power = []
             for ts_utc, row in result_final.iterrows():
-                past_hours.append(ts_utc.tz_convert("Asia/Shanghai").strftime("%H:%M"))
+                past_hours.append(ts_utc.tz_convert("Asia/Shanghai").strftime("%m-%d %H:%M"))
                 p = row.get("avg_power", 0.0)
                 past_power.append(float(p) if pd.notna(p) else 0.0)
         
@@ -608,13 +608,14 @@ def get_turbine_power_trend(turbine_id: str):
 
             for i in range(1, 5):
                 t = now_bj + datetime.timedelta(hours = i)
-                future_hours.append(t.strftime('%H:%M'))
+                future_hours.append(t.strftime('%m-%d %H:%M'))
             
             future_power_null = [None] * 4
-            forecast_series = [None] * len(past_power)
+            # forecast_series = [None] * len(past_power)
 
             if len(past_power) > 0:
-                forecast_series[-1] = past_power[-1]
+                # forecast_series[-1] = past_power[-1]
+                forecast_series.append(past_power[-1])
             
             for i in range(4):
                 forecast_series.append(float(fc_values[i]))
@@ -626,6 +627,8 @@ def get_turbine_power_trend(turbine_id: str):
 
         hours = past_hours + future_hours
         power = past_power + future_power_null
+        print(f"Hours: {len(hours)}, Past: {len(past_hours)}, Future: {len(future_hours)}")
+        print(forecast_series)
 
         return PowerTrend(hours=hours, power=power, forecast=forecast_series)
     except Exception as e:

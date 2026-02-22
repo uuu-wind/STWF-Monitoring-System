@@ -470,42 +470,104 @@ export default {
         return
       }
       
-      const option = {
-        tooltip: {
-          trigger: 'axis',
-          textStyle: {
-            color: 'white'
+      const powerTrendOption = computed(() => {
+        if(!powerTrend.value) return {}
+        
+        const hours = powerTrend.value.hours || []
+        const power = powerTrend.value.power || []
+        const forecast = powerTrend.value.forecast || []
+
+        // 时间转换为毫秒，适配不同格式
+        const toMs = (t) => {
+          if (!t) return NaN
+
+          // 尝试直接解析完整时间格式（ISO、日期）
+          const parsed = Date.parse(t)
+          if (!Number.isNaN(parsed)) return parsed
+
+          // 兼容 HH:mm 或 HH:mm:ss 格式
+          const m = String(t).match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/)
+          if (m) {
+            const now = new Date()
+            const d = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate(),
+              Number(m[1]),
+              Number(m[2]),
+              Number(m[3] || 0),
+              0
+            )
+            return d.getTime()
+          }
+          return NaN
+        }
+
+        const actualData = hours
+          .map((h, i) => [toMs(h), power[i]])
+          .filter(([t, v]) => Number.isFinite(t) && v != null)
+
+        // 构建预测数据，直接使用hours的最后四个时间值作为X轴
+        let forecastData = []
+        if (forecast.length > 0 && hours.length >= 5) {
+          // 获取hours的最后四个时间点
+          const forecastHours = hours.slice(-5)
+          
+          forecastData = forecast.map((v, index) => {
+            // 使用对应的forecastHours时间
+            return [toMs(forecastHours[index]), v]
+          })
+        }
+
+        return {
+          tooltip: {
+            trigger: 'axis',
+            formatter: (params) => {
+              if (!params.length) return ''
+              const date = new Date(params[0].value[0])
+              const hh = String(date.getHours()).padStart(2, '0')
+              const mi = String(date.getMinutes()).padStart(2, '0')
+
+              let str = `${hh}:${mi}<br/>`
+              params.forEach(p => {
+                str += `${p.marker} ${p.seriesName}: ${p.value[1]} kW<br/>`
+              })
+              return str
+            },
+            textStyle: {
+              color: 'white'
+            },
+            backgroundColor: 'rgba(39, 64, 139, 0.8)',
+            borderColor: 'rgba(79, 195, 247, 0.5)',
+            borderWidth: 1
           },
-          backgroundColor: 'rgba(39, 64, 139, 0.8)',
-          borderColor: 'rgba(79, 195, 247, 0.5)',
-          borderWidth: 1
-        },
-        grid: {
-          top: '30%',
-          left: '1%',
-          right: '1%',
-          bottom: '1%',
-          containLabel: true
-        },
-        xAxis: [
-          {
-            type: 'category',
+          grid: {
+            left: '1%',
+            right: '1%',
+            bottom: '1%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'time',
             boundaryGap: false,
-            data: powerTrend.value.hours || [],
+            axisLabel: {
+              formatter: (value) => {
+                const d = new Date(value)
+                const hh = String(d.getHours()).padStart(2, '0')
+                const mm = String(d.getMinutes()).padStart(2, '0')
+                return `${hh}:${mm}`
+              },
+              color: 'rgba(255, 255, 255, 0.8)'
+            },
             axisLine: {
               lineStyle: {
                 color: 'rgba(255, 255, 255, 0.5)'
               }
             },
-            axisLabel: {
-              color: 'rgba(255, 255, 255, 0.8)'
-            }
-          }
-        ],
-        yAxis: [
-          {
+          },
+          yAxis: {
             type: 'value',
-            name: '发电量 (kW)',
+            name: '功率 (kW)',
             nameTextStyle: {
               color: 'rgba(255, 255, 255, 0.8)'
             },
@@ -522,53 +584,54 @@ export default {
                 color: 'rgba(255, 255, 255, 0.1)'
               }
             }
-          }
-        ],
-        series: [
-          {
-            name: '发电量',
-            type: 'line',
-            smooth: true,
-            symbol: 'circle',
-            symbolSize: 6,
-            lineStyle: {
-              width: 3,
-              color: '#4FC3F7'
-            },
-            itemStyle: {
-              color: '#4FC3F7',
-              borderColor: '#ffffff',
-              borderWidth: 2
-            },
-            areaStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [{
-                  offset: 0, color: 'rgba(79, 195, 247, 0.5)'
-                }, {
-                  offset: 1, color: 'rgba(79, 195, 247, 0.1)'
-                }],
-                global: false
+          },
+          series: [
+            {
+              name: '发电量',
+              type: 'line',
+              smooth: true,
+              symbol: 'circle',
+              symbolSize: 6,
+              data: actualData,
+              lineStyle: {
+                width: 3,
+                color: '#4FC3F7'
+              },
+              areaStyle: {
+                color: {
+                  type: 'linear',
+                  x: 0,
+                  y: 0,
+                  x2: 0,
+                  y2: 1,
+                  colorStops: [{
+                    offset: 0, color: 'rgba(79, 195, 247, 0.5)'
+                  }, {
+                    offset: 1, color: 'rgba(79, 195, 247, 0.1)'
+                  }],
+                  global: false
+                }
               }
             },
-            data: powerTrend.value.power || []
-          },
-          {
-            name: '预测出力',
-            type: 'line',
-            smooth: true,
-            data: powerTrend.value.forecast,
-            lineStyle: { color: "#FFD700", width: 2 },
-            itemStyle: { color: "#FFD700" }
-          }
-        ]
-      }
-      
-      powerChartInstance.setOption(option)
+            {
+              name: '预测出力',
+              type: 'line',
+              smooth: true,
+              symbol: 'circle',
+              symbolSize: 6,
+              data: forecastData,
+              lineStyle: {
+                color: "#FFD700",
+                width: 2
+              },
+              itemStyle: {
+                color: "#FFD700"
+              }
+            }
+          ]
+        }
+      })
+      powerChartInstance.setOption(powerTrendOption.value)
     }
 
     // 更新告警统计柱状图
