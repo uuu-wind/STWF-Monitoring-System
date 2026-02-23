@@ -18,6 +18,13 @@
       </div>
       <div 
         class="sidebar-item" 
+        :class="{ active: activeTab === 'turbine' }"
+        @click="activeTab = 'turbine'"
+      >
+        风机信息
+      </div>
+      <div 
+        class="sidebar-item" 
         :class="{ active: activeTab === 'ai' }"
         @click="activeTab = 'ai'"
       >
@@ -143,6 +150,225 @@
         </div>
       </div>
 
+      <!-- 风机信息设置页面 -->
+      <div v-if="activeTab === 'turbine'">
+        <h1>风机信息设置</h1>
+        
+        <div class="setting-section">
+          <!-- 风机选择 -->
+          <div class="row setting-row">
+            <div class="col-6">
+              <label class="form-label">选择风机</label>
+              <select 
+                v-model="selectedTurbineId" 
+                class="form-select"
+                @change="loadTurbineConfig"
+              >
+                <option 
+                  v-for="id in 256" 
+                  :key="id" 
+                  :value="'T' + String(id).padStart(3, '0')"
+                >
+                  T{{ String(id).padStart(3, '0') }}
+                </option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label">操作</label>
+              <button 
+                class="btn btn-info copy-button"
+                @click="showCopyModal = true"
+              >
+                一键复制
+              </button>
+            </div>
+          </div>
+
+          <!-- 风机信息 -->
+          <div class="setting-row turbine-section">
+            <h3>风机信息</h3>
+            <div class="row">
+              <div class="col-6">
+                <label class="form-label">风机ID</label>
+                <input 
+                  v-model="turbineConfig.info.id" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: T001"
+                >
+              </div>
+              <div class="col-6">
+                <label class="form-label">风机名称</label>
+                <input 
+                  v-model="turbineConfig.info.name" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: NW1"
+                >
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-12">
+                <label class="form-label">位置</label>
+                <input 
+                  v-model="turbineConfig.info.location" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: IM_Zone_A"
+                >
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-4">
+                <label class="form-label">叶片长度 (m)</label>
+                <input 
+                  v-model.number="turbineConfig.info.bladeLength" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="叶片长度"
+                >
+              </div>
+              <div class="col-4">
+                <label class="form-label">转子直径 (m)</label>
+                <input 
+                  v-model.number="turbineConfig.info.rotorDiameter" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="转子直径"
+                >
+              </div>
+              <div class="col-4">
+                <label class="form-label">额定功率 (kW)</label>
+                <input 
+                  v-model.number="turbineConfig.info.ratedPower" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="额定功率"
+                >
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-4">
+                <label class="form-label">轮毂高度 (m)</label>
+                <input 
+                  v-model.number="turbineConfig.info.hubHeight" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="轮毂高度"
+                >
+              </div>
+              <div class="col-4">
+                <label class="form-label">叶片数量</label>
+                <input 
+                  v-model.number="turbineConfig.info.bladeCount" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="叶片数量"
+                >
+              </div>
+              <div class="col-4">
+                <label class="form-label">转速范围</label>
+                <input 
+                  v-model="turbineConfig.info.speedRange" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: 3-20 RPM"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- 风机系统信息 -->
+          <div class="setting-row turbine-system-section">
+            <h3>风机系统信息</h3>
+            <div class="row">
+              <div class="col-6">
+                <label class="form-label">型号</label>
+                <input 
+                  v-model="turbineConfig.system.model" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: WTG-2.5MW"
+                >
+              </div>
+              <div class="col-6">
+                <label class="form-label">制造商</label>
+                <input 
+                  v-model="turbineConfig.system.manufacturer" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="制造商名称"
+                >
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <label class="form-label">安装日期</label>
+                <input 
+                  v-model="turbineConfig.system.installationDate" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: 2024-03-15"
+                >
+              </div>
+              <div class="col-6">
+                <label class="form-label">运行小时数</label>
+                <input 
+                  v-model.number="turbineConfig.system.runHours" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="运行小时数"
+                >
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <label class="form-label">维护周期 (天)</label>
+                <input 
+                  v-model.number="turbineConfig.system.maintenanceCycle" 
+                  type="number" 
+                  class="form-control"
+                  placeholder="维护周期"
+                >
+              </div>
+              <div class="col-6">
+                <label class="form-label">状态</label>
+                <select 
+                  v-model="turbineConfig.system.status" 
+                  class="form-select"
+                >
+                  <option value="running">运行中</option>
+                  <option value="stopped">停止</option>
+                  <option value="maintenance">维护中</option>
+                  <option value="error">故障</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-12">
+                <label class="form-label">状态文本</label>
+                <input 
+                  v-model="turbineConfig.system.statusText" 
+                  type="text" 
+                  class="form-control"
+                  placeholder="例如: Running"
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- 保存按钮 -->
+          <div class="save-button-container">
+            <button 
+              class="btn btn-primary save-button"
+              @click="saveTurbineConfig"
+            >
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- AI配置页面 -->
       <div v-if="activeTab === 'ai'">
         <h1>AI配置</h1>
@@ -228,6 +454,26 @@
         </div>
       </div>
     </div>
+
+    <!-- 复制模态框 -->
+    <div v-if="showCopyModal" class="modal-overlay" @click="showCopyModal = false">
+      <div class="modal-content" @click.stop>
+        <h2>选择要复制的风机</h2>
+        <div class="turbine-list">
+          <div 
+            v-for="turbineId in availableTurbines" 
+            :key="turbineId"
+            class="turbine-item"
+            @click="copyFromTurbine(turbineId)"
+          >
+            {{ turbineId }}
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="showCopyModal = false">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -266,10 +512,41 @@ const aiConfig = reactive({
 const isTraining = ref(false)
 const trainResult = ref(null)
 
+// 风机配置相关
+const selectedTurbineId = ref('T001')
+const turbineConfig = reactive({
+  info: {
+    id: 'T001',
+    name: '',
+    location: '',
+    bladeLength: 0,
+    rotorDiameter: 0,
+    ratedPower: 0,
+    hubHeight: 0,
+    bladeCount: 0,
+    speedRange: ''
+  },
+  system: {
+    model: '',
+    manufacturer: '',
+    installationDate: '',
+    runHours: 0,
+    maintenanceCycle: 0,
+    status: 'running',
+    statusText: ''
+  }
+})
+const showCopyModal = ref(false)
+const availableTurbines = ref([])
+
 // 监听标签页切换
 watch(activeTab, (newTab) => {
   if (newTab === 'ai') {
     loadAIConfig()
+  }
+  if (newTab === 'turbine') {
+    loadAllTurbines()
+    loadTurbineConfig()
   }
 })
 
@@ -466,6 +743,156 @@ const trainModel = async () => {
     isTraining.value = false
   }
 }
+
+// 加载所有风机列表
+const loadAllTurbines = async () => {
+  try {
+    const response = await fetch('http://localhost:8000/api/turbines/config')
+    const data = await response.json()
+    
+    if (data.error) {
+      console.error('加载风机列表失败:', data.error)
+      availableTurbines.value = []
+    } else {
+      availableTurbines.value = Object.keys(data)
+    }
+  } catch (error) {
+    console.error('Error loading turbines:', error)
+    availableTurbines.value = []
+  }
+}
+
+// 加载指定风机配置
+const loadTurbineConfig = async () => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/turbines/config/${selectedTurbineId.value}`)
+    const data = await response.json()
+    
+    if (data.error) {
+      console.error('风机不存在，显示空配置:', data.error)
+      turbineConfig.info.id = selectedTurbineId.value
+      turbineConfig.info.name = ''
+      turbineConfig.info.location = ''
+      turbineConfig.info.bladeLength = 0
+      turbineConfig.info.rotorDiameter = 0
+      turbineConfig.info.ratedPower = 0
+      turbineConfig.info.hubHeight = 0
+      turbineConfig.info.bladeCount = 0
+      turbineConfig.info.speedRange = ''
+      
+      turbineConfig.system.model = ''
+      turbineConfig.system.manufacturer = ''
+      turbineConfig.system.installationDate = ''
+      turbineConfig.system.runHours = 0
+      turbineConfig.system.maintenanceCycle = 0
+      turbineConfig.system.status = 'running'
+      turbineConfig.system.statusText = ''
+    } else {
+      turbineConfig.info.id = data.info.id || selectedTurbineId.value
+      turbineConfig.info.name = data.info.name || ''
+      turbineConfig.info.location = data.info.location || ''
+      turbineConfig.info.bladeLength = data.info.bladeLength || 0
+      turbineConfig.info.rotorDiameter = data.info.rotorDiameter || 0
+      turbineConfig.info.ratedPower = data.info.ratedPower || 0
+      turbineConfig.info.hubHeight = data.info.hubHeight || 0
+      turbineConfig.info.bladeCount = data.info.bladeCount || 0
+      turbineConfig.info.speedRange = data.info.speedRange || ''
+      
+      turbineConfig.system.model = data.system.model || ''
+      turbineConfig.system.manufacturer = data.system.manufacturer || ''
+      turbineConfig.system.installationDate = data.system.installationDate || ''
+      turbineConfig.system.runHours = data.system.runHours || 0
+      turbineConfig.system.maintenanceCycle = data.system.maintenanceCycle || 0
+      turbineConfig.system.status = data.system.status || 'running'
+      turbineConfig.system.statusText = data.system.statusText || ''
+    }
+  } catch (error) {
+    console.error('Error loading turbine config:', error)
+    turbineConfig.info.id = selectedTurbineId.value
+    turbineConfig.info.name = ''
+    turbineConfig.info.location = ''
+    turbineConfig.info.bladeLength = 0
+    turbineConfig.info.rotorDiameter = 0
+    turbineConfig.info.ratedPower = 0
+    turbineConfig.info.hubHeight = 0
+    turbineConfig.info.bladeCount = 0
+    turbineConfig.info.speedRange = ''
+    
+    turbineConfig.system.model = ''
+    turbineConfig.system.manufacturer = ''
+    turbineConfig.system.installationDate = ''
+    turbineConfig.system.runHours = 0
+    turbineConfig.system.maintenanceCycle = 0
+    turbineConfig.system.status = 'running'
+    turbineConfig.system.statusText = ''
+  }
+}
+
+// 保存风机配置
+const saveTurbineConfig = async () => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/turbines/config/${selectedTurbineId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        info: turbineConfig.info,
+        system: turbineConfig.system
+      })
+    })
+    
+    const data = await response.json()
+    
+    if (data.error) {
+      console.error('保存风机配置失败:', data.error)
+      alert(`保存风机配置失败: ${data.error}`)
+    } else {
+      console.log('保存风机配置成功:', data.message)
+      alert('风机配置已保存！')
+      loadAllTurbines()
+    }
+  } catch (error) {
+    console.error('Error saving turbine config:', error)
+    alert('保存风机配置失败！')
+  }
+}
+
+// 从其他风机复制配置
+const copyFromTurbine = async (sourceTurbineId) => {
+  try {
+    const response = await fetch(`http://localhost:8000/api/turbines/config/${sourceTurbineId}`)
+    const data = await response.json()
+    
+    if (data.error) {
+      console.error('复制风机配置失败:', data.error)
+      alert(`复制风机配置失败: ${data.error}`)
+    } else {
+      turbineConfig.info.name = data.info.name || ''
+      turbineConfig.info.location = data.info.location || ''
+      turbineConfig.info.bladeLength = data.info.bladeLength || 0
+      turbineConfig.info.rotorDiameter = data.info.rotorDiameter || 0
+      turbineConfig.info.ratedPower = data.info.ratedPower || 0
+      turbineConfig.info.hubHeight = data.info.hubHeight || 0
+      turbineConfig.info.bladeCount = data.info.bladeCount || 0
+      turbineConfig.info.speedRange = data.info.speedRange || ''
+      
+      turbineConfig.system.model = data.system.model || ''
+      turbineConfig.system.manufacturer = data.system.manufacturer || ''
+      turbineConfig.system.installationDate = data.system.installationDate || ''
+      turbineConfig.system.runHours = data.system.runHours || 0
+      turbineConfig.system.maintenanceCycle = data.system.maintenanceCycle || 0
+      turbineConfig.system.status = data.system.status || 'running'
+      turbineConfig.system.statusText = data.system.statusText || ''
+      
+      showCopyModal.value = false
+      alert(`已从 ${sourceTurbineId} 复制配置！`)
+    }
+  } catch (error) {
+    console.error('Error copying turbine config:', error)
+    alert('复制风机配置失败！')
+  }
+}
 </script>
 
 <style scoped>
@@ -562,6 +989,90 @@ const trainModel = async () => {
   background-color: #6c757d;
   border-color: #6c757d;
   cursor: not-allowed;
+}
+
+.copy-button {
+  padding: 10px 30px;
+  font-size: 16px;
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+}
+
+.copy-button:hover {
+  background-color: #138496;
+  border-color: #117a8b;
+}
+
+.turbine-section {
+  margin-top: 30px;
+}
+
+.turbine-section h3,
+.turbine-system-section h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.turbine-system-section {
+  margin-top: 30px;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 30px;
+  min-width: 400px;
+  max-width: 600px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.turbine-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.turbine-item {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.turbine-item:hover {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .train-result {

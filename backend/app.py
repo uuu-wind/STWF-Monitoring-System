@@ -377,6 +377,102 @@ mock_power_trend = {
 def read_root():
     return {"message": "Wind Farm Intelligent Monitoring Platform API is running"}
 
+# 风机信息配置相关API
+class TurbineInfoData(BaseModel):
+    id: str
+    name: str
+    location: str
+    bladeLength: float
+    rotorDiameter: float
+    ratedPower: float
+    hubHeight: float
+    bladeCount: int
+    speedRange: str
+
+class TurbineSystemData(BaseModel):
+    model: str
+    manufacturer: str
+    installationDate: str
+    runHours: float
+    maintenanceCycle: int
+    status: str
+    statusText: str
+
+class TurbineConfigRequest(BaseModel):
+    info: TurbineInfoData
+    system: TurbineSystemData
+
+@app.get("/api/turbines/config")
+def get_all_turbines_config():
+    """获取所有风机配置"""
+    try:
+        if not os.path.exists(TURBINE_FILE_PATH):
+            return {}
+        
+        with open(TURBINE_FILE_PATH, 'r', encoding='utf-8') as f:
+            turbine_data = json.load(f)
+        
+        return turbine_data
+    except Exception as e:
+        return {"error": f"读取风机配置失败: {str(e)}"}
+
+@app.get("/api/turbines/config/{turbine_id}")
+def get_turbine_config(turbine_id: str):
+    """获取指定风机配置"""
+    try:
+        if not os.path.exists(TURBINE_FILE_PATH):
+            return {"error": "风机配置文件不存在"}
+        
+        with open(TURBINE_FILE_PATH, 'r', encoding='utf-8') as f:
+            turbine_data = json.load(f)
+        
+        if turbine_id in turbine_data:
+            return turbine_data[turbine_id]
+        else:
+            return {"error": f"风机 {turbine_id} 不存在"}
+    except Exception as e:
+        return {"error": f"读取风机配置失败: {str(e)}"}
+
+@app.put("/api/turbines/config/{turbine_id}")
+def save_turbine_config(turbine_id: str, config: TurbineConfigRequest):
+    """保存指定风机配置"""
+    try:
+        if not os.path.exists(TURBINE_FILE_PATH):
+            turbine_data = {}
+        else:
+            with open(TURBINE_FILE_PATH, 'r', encoding='utf-8') as f:
+                turbine_data = json.load(f)
+        
+        turbine_data[turbine_id] = {
+            "info": {
+                "id": config.info.id,
+                "name": config.info.name,
+                "location": config.info.location,
+                "bladeLength": config.info.bladeLength,
+                "rotorDiameter": config.info.rotorDiameter,
+                "ratedPower": config.info.ratedPower,
+                "hubHeight": config.info.hubHeight,
+                "bladeCount": config.info.bladeCount,
+                "speedRange": config.info.speedRange
+            },
+            "system": {
+                "model": config.system.model,
+                "manufacturer": config.system.manufacturer,
+                "installationDate": config.system.installationDate,
+                "runHours": config.system.runHours,
+                "maintenanceCycle": config.system.maintenanceCycle,
+                "status": config.system.status,
+                "statusText": config.system.statusText
+            }
+        }
+        
+        with open(TURBINE_FILE_PATH, 'w', encoding='utf-8') as f:
+            json.dump(turbine_data, f, indent=2, ensure_ascii=False)
+        
+        return {"message": f"风机 {turbine_id} 配置已保存"}
+    except Exception as e:
+        return {"error": f"保存风机配置失败: {str(e)}"}
+
 # 风机相关API
 @app.get("/api/turbines", response_model=List[Turbine])
 def get_turbines(status: Optional[str] = None):
@@ -424,31 +520,33 @@ def get_turbines(status: Optional[str] = None):
 def get_turbine_info(turbine_id: str):
     """Get detailed information for specified turbine"""
     try:
-        # Try to query from InfluxDB
-        query = f"SELECT * FROM turbine_info WHERE turbine_id = '{turbine_id}'"
-        # query = f'from(bucket: "{INFLUXDB_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r._measurement == "turbine" and r.turbine_id == "{turbine_id}") |> last()'
-        result = client.query(query=query, mode="pandas")
+        if not os.path.exists(TURBINE_FILE_PATH):
+            raise HTTPException(status_code=404, detail="Turbine data file not found")
         
-        for index, row in result.iterrows():
-            info = TurbineInfo(
-                id=row["turbine_id"],
-                name=row["name"],
-                location=row["location"],
-                bladeLength=float(row["bladeLength"]),
-                rotorDiameter=float(row["rotorDiameter"]),
-                ratedPower=float(row["ratedPower"]),
-                hubHeight=float(row["hubHeight"]),
-                bladeCount=int(row["bladeCount"]),
-                speedRange=row["speedRange"]
-            )
-            return info
+        with open(TURBINE_FILE_PATH, 'r', encoding='utf-8') as f:
+            turbine_data = json.load(f)
+        
+        if turbine_id not in turbine_data:
+            raise HTTPException(status_code=404, detail="Turbine not found")
+        
+        info_data = turbine_data[turbine_id]["info"]
+        info = TurbineInfo(
+            id=info_data["id"],
+            name=info_data["name"],
+            location=info_data["location"],
+            bladeLength=float(info_data["bladeLength"]),
+            rotorDiameter=float(info_data["rotorDiameter"]),
+            ratedPower=float(info_data["ratedPower"]),
+            hubHeight=float(info_data["hubHeight"]),
+            bladeCount=int(info_data["bladeCount"]),
+            speedRange=info_data["speedRange"]
+        )
+        return info
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"InfluxDB query failed: {e}")
-    
-    # # 使用模拟数据
-    # if turbine_id == "T001":
-    #     return mock_turbine_info
-    # raise HTTPException(status_code=404, detail="Turbine not found")
+        print(f"Error reading turbine info: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read turbine information")
 
 @app.get("/api/turbines/{turbine_id}/runtime", response_model=RuntimeData)
 def get_turbine_runtime(turbine_id: str):
@@ -487,30 +585,31 @@ def get_turbine_runtime(turbine_id: str):
 def get_turbine_system(turbine_id: str):
     """Get turbine system information"""
     try:
-        # Try to query from InfluxDB
-        query = f"SELECT model FROM turbine_info WHERE turbine_id = '{turbine_id}'"
-        result = client.query(query=query, mode="pandas")
-        model = result.iloc[0]["model"]
-
-        query = f"SELECT * FROM system_info WHERE model = '{model}'"
-        result = client.query(query=query, mode="pandas")
+        if not os.path.exists(TURBINE_FILE_PATH):
+            raise HTTPException(status_code=404, detail="Turbine data file not found")
         
-        for index, row in result.iterrows():
-            info = SystemInfo(
-                    model=row["model"],
-                    manufacturer=row["manufacturer"],
-                    installationDate=row["installationDate"],
-                    runHours=float(row["runHours"]),
-                    maintenanceCycle=int(row["maintenanceCycle"]),
-                    status=row["status"],
-                    statusText=row["statusText"]
-                )
-            return info
+        with open(TURBINE_FILE_PATH, 'r', encoding='utf-8') as f:
+            turbine_data = json.load(f)
+        
+        if turbine_id not in turbine_data:
+            raise HTTPException(status_code=404, detail="Turbine not found")
+        
+        system_data = turbine_data[turbine_id]["system"]
+        info = SystemInfo(
+            model=system_data["model"],
+            manufacturer=system_data["manufacturer"],
+            installationDate=system_data["installationDate"],
+            runHours=float(system_data["runHours"]),
+            maintenanceCycle=int(system_data["maintenanceCycle"]),
+            status=system_data["status"],
+            statusText=system_data["statusText"]
+        )
+        return info
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"InfluxDB query failed: {e}")
-    
-    # 使用模拟数据
-    return mock_system_info
+        print(f"Error reading turbine system: {e}")
+        raise HTTPException(status_code=500, detail="Failed to read turbine system information")
 
 @app.get("/api/turbines/{turbine_id}/wind", response_model=WindData)
 def get_turbine_wind(turbine_id: str):
@@ -968,6 +1067,7 @@ def write_test_data():
 # 配置文件相关API
 CONFIG_FILE_PATH = "../STM32_Receiver/config.json"
 AI_CONFIG_FILE_PATH = "../backend/config.json"
+TURBINE_FILE_PATH = "turbines.json"
 
 class ChannelConfig(BaseModel):
     column: str

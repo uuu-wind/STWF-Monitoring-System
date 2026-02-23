@@ -1,0 +1,134 @@
+{
+  "T001": {
+    "info": {
+      "id": "T001",
+      "name": "NW1",
+      "location": "IM_Zone_A",
+      "bladeLength": 55,
+      "rotorDiameter": 112,
+      "ratedPower": 2500,
+      "hubHeight": 120,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
+  },
+  "T002": {
+    "info": {
+      "id": "T002",
+      "name": "NW2",
+      "location": "IM_Zone_A",
+      "bladeLength": 55,
+      "rotorDiameter": 112,
+      "ratedPower": 2500,
+      "hubHeight": 120,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
+  },
+  "T003": {
+    "info": {
+      "id": "T003",
+      "name": "NW3",
+      "location": "IM_Zone_B",
+      "bladeLength": 55,
+      "rotorDiameter": 112,
+      "ratedPower": 2500,
+      "hubHeight": 120,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
+  },
+  "T004": {
+    "info": {
+      "id": "T004",
+      "name": "NW4",
+      "location": "IM_Zone_B",
+      "bladeLength": 55,
+      "rotorDiameter": 112,
+      "ratedPower": 2500,
+      "hubHeight": 120,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640,
+      "maintenanceCycle": 90,
+      "status": "stopped",
+      "statusText": "Stopped"
+    }
+  },
+  "T005": {
+    "info": {
+      "id": "T005",
+      "name": "NW5",
+      "location": "IM_Zone_C",
+      "bladeLength": 55,
+      "rotorDiameter": 112,
+      "ratedPower": 2500,
+      "hubHeight": 120,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
+  },
+  "T006": {
+    "info": {
+      "id": "T006",
+      "name": "NW5",
+      "location": "IM_Zone_C",
+      "bladeLength": 55.0,
+      "rotorDiameter": 112.0,
+      "ratedPower": 2500.0,
+      "hubHeight": 120.0,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640.0,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
+  }
+}

@@ -27,6 +27,7 @@ class Forecast:
         self.model = None
         self.features = None
         self.model_weight = 0.5
+        self.turbine_orientation = 0.0
         
         self._load_model_and_config()
     
@@ -54,6 +55,9 @@ class Forecast:
                     if 'model_weight' in config:
                         self.model_weight = float(config['model_weight'])
                         print(f"权重加载成功: {self.model_weight}")
+                    if 'turbine_orientation' in config:
+                        self.turbine_orientation = float(config['turbine_orientation'])
+                        print(f"风机方向加载成功: {self.turbine_orientation}")
             else:
                 print(f"配置文件不存在: {self.config_file}")
         except Exception as e:
@@ -86,7 +90,8 @@ class Forecast:
         
         target_df = pd.DataFrame(target_data)
         
-        wind_speeds = target_df['wind_speed_10m'].values
+        # 考虑风向
+        wind_speeds = target_df['wind_speed_10m'].values * np.abs(np.cos(np.degrees(target_df['wind_direction_10m'].values - self.turbine_orientation)))
         
         base_wind_speeds = base_line_df['wind_speed'].values
         base_values = base_line_df['value'].values
