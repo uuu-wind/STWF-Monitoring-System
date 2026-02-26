@@ -106,22 +106,34 @@ void system_init(void)
   HAL_Delay(5000);
   
   Flash_Load();
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
 }
 
 void system_run(void)
 {
   atk_mo395q_handler();
-  if(status == 0 && TIM1->CNT > 11520)
+  if(status == 0)
   {
-    TIM1->CNT = 0;
-    if(socket0_send_done == 1)
+    if(TIM1->CNT < 5760)
     {
-      socket0_send_done = 0;
-      socket0_send_buf[0] = 0x02;
-      socket0_send_buf[1] = IP[3];
-      socket0_send_buf[2] = call_name / 256;
-      socket0_send_buf[3] = call_name % 256;
-      atk_mo395q_cmd_write_send_buf_sn(ATK_MO395Q_SOCKET_0, socket0_send_buf, sizeof(socket0_send_buf));
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    }
+    else if(TIM1->CNT <= 11520)
+    {
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+    }
+    else
+    {
+      TIM1->CNT = 0;
+      if(socket0_send_done == 1)
+      {
+        socket0_send_done = 0;
+        socket0_send_buf[0] = 0x02;
+        socket0_send_buf[1] = IP[3];
+        socket0_send_buf[2] = call_name / 256;
+        socket0_send_buf[3] = call_name % 256;
+        atk_mo395q_cmd_write_send_buf_sn(ATK_MO395Q_SOCKET_0, socket0_send_buf, sizeof(socket0_send_buf));
+      }
     }
   }
 //  if(socket0_send_done == 1)
@@ -135,6 +147,7 @@ void Deal_Recv(uint8_t *buf)
 {
 //  TIM1_Update_Interrupt_Disable();
   status = 1;
+  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
   if(*buf == SEND_DATA && socket0_send_done == 1)
   {
     socket0_send_done = 0;
