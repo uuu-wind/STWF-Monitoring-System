@@ -10,7 +10,7 @@ uint8_t socket0_recv_buf[1024];
 uint8_t socket0_send_done = 1;
 uint8_t call_name = 255;
 uint8_t data_type = 255;
-uint8_t status = 0;
+uint8_t status = 2;
 
 extern uint16_t dataBuf[8];
 
@@ -21,6 +21,7 @@ void phy_conn_cb(uint8_t phy_status)
     case ATK_MO395Q_CMD_PHY_10M_FLL:break;
     default:break;
   }
+  status = 2;
 //  TIM1_Update_Interrupt_Enable();
 }
 
@@ -28,6 +29,7 @@ void phy_disconn_cb(void)
 {
   // ¶Ï¿ª
   socket0_send_done = 1;
+  status = 2;
 }
 
 void dhcp_success_cb(uint8_t *ip, uint8_t *gwip, uint8_t *mask, uint8_t *dns1, uint8_t *dns2)
@@ -136,6 +138,14 @@ void system_run(void)
       }
     }
   }
+  else if(status == 1)
+  {
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+  }
+  else
+  {
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+  }
 //  if(socket0_send_done == 1)
 //  {
 //    socket0_send_done = 0;
@@ -147,7 +157,6 @@ void Deal_Recv(uint8_t *buf)
 {
 //  TIM1_Update_Interrupt_Disable();
   status = 1;
-  HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
   if(*buf == SEND_DATA && socket0_send_done == 1)
   {
     socket0_send_done = 0;
