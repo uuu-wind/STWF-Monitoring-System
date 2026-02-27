@@ -1280,7 +1280,7 @@ export default {
 /* 中间底部区域：新增框图 */
 .middle-bottom-section {
   width: 52.5%;
-  height: 13%;
+  height: 20%;
   position: absolute;
   bottom: 0;
   left: calc(25% + 15px);

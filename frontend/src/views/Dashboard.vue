@@ -396,10 +396,15 @@ export default {
         },
         legend: {
           orient: 'vertical',
-          left: 10,
+          right: '5%',
+          top: 'center',
+          itemWidth: 10,
+          itemHeight: 10,
+          itemGap: 6,
           data: faultDistribution.value.map(item => item.name),
           textStyle: {
-            color: 'rgba(255, 255, 255, 0.8)'
+            color: 'rgba(255, 255, 255, 0.8)',
+            fontSize: 10
           },
           formatter: '{name}'
         },
@@ -407,7 +412,8 @@ export default {
           {
             name: '故障分布',
             type: 'pie',
-            radius: ['40%', '70%'],
+            radius: ['35%', '60%'],
+            center: ['40%', '50%'],
             avoidLabelOverlap: false,
             itemStyle: {
               borderRadius: 10,
@@ -1219,8 +1225,8 @@ export default {
 }
 
 .chart {
-  width: 900px;
-  height: 180px;
+  width: 100%;
+  height: 100%;
 }
 
 /* 卡片头部样式 */
