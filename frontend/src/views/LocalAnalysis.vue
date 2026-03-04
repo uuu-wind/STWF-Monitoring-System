@@ -776,11 +776,7 @@ export default {
           '/fans/Tower.glb',
           (gltf) => {
             const towerModel = gltf.scene
-            towerModel.traverse((child) => {
-              if (child.isMesh) {
-                child.material = towerMaterial
-              }
-            })
+            // 不再指定材质，直接使用模型自带材质
             towerModel.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
             towerModel.position.set(0, 0, 0) // 调整位置
             towerModel.rotation.set(0, 1.5708, 0)
@@ -799,11 +795,7 @@ export default {
           '/fans/Fan.glb',
           (gltf) => {
             const fanModel = gltf.scene
-            fanModel.traverse((child) => {
-              if (child.isMesh) {
-                child.material = fanMaterial
-              }
-            })
+            // 不再指定材质，直接使用模型自带材质
             fanModel.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
             
             // 创建父物体Group
@@ -838,11 +830,7 @@ export default {
           '/fans/Fan.glb',
           (gltf) => {
             const fanModel2 = gltf.scene
-            fanModel2.traverse((child) => {
-              if (child.isMesh) {
-                child.material = fanMaterial
-              }
-            })
+            // 不再指定材质，直接使用模型自带材质
             fanModel2.scale.set(0.1, 0.1, 0.1) // 根据实际模型大小调整缩放比例
             
             // 创建父物体Group
