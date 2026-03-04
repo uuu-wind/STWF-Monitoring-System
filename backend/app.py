@@ -24,7 +24,7 @@ load_dotenv()
 # InfluxDB 连接配置
 INFLUXDB_URL = os.getenv("INFLUXDB_URL", "http://localhost:8181")
 INFLUXDB_TOKEN = os.getenv("INFLUXDB_TOKEN", "apiv3_EOFdkIZBSFqmH4Cn7TymCYrl8Hht1npEe9vTOD8zOXtNnFQj5uDsUzFDKzDwGmO2qfoxD0nZPg61AUnBrxlPfg")
-INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "windfarm")
+INFLUXDB_BUCKET = os.getenv("INFLUXDB_BUCKET", "Wind")
 
 # Silicon 相关配置
 SILICON_API_URL = os.getenv("SILICON_API_URL", "https://api.siliconflow.cn/v1/chat/completions")

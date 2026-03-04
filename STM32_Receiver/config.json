@@ -1,20 +1,20 @@
 {
   "0": {
     "class_id": 0,
-    "database": "windfarm",
+    "database": "wind",
     "channels": [
       {
-        "column": "channel_0",
+        "column": "direction",
         "range": {
           "min": 0.0,
-          "max": 65535.0
+          "max": 360.0
         }
       },
       {
-        "column": "channel_1",
+        "column": "speed",
         "range": {
           "min": 0.0,
-          "max": 65535.0
+          "max": 10.0
         }
       },
       {

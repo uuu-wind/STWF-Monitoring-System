@@ -152,5 +152,27 @@
       "status": "running",
       "statusText": "Running"
     }
+  },
+  "T010": {
+    "info": {
+      "id": "T010",
+      "name": "NW1",
+      "location": "IM_Zone_A",
+      "bladeLength": 55.0,
+      "rotorDiameter": 112.0,
+      "ratedPower": 2500.0,
+      "hubHeight": 120.0,
+      "bladeCount": 3,
+      "speedRange": "3-20 RPM"
+    },
+    "system": {
+      "model": "WTG-2.5MW",
+      "manufacturer": "New Energy Technology Co., Ltd.",
+      "installationDate": "2024-03-15",
+      "runHours": 8640.0,
+      "maintenanceCycle": 90,
+      "status": "running",
+      "statusText": "Running"
+    }
   }
 }
