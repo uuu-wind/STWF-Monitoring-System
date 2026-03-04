@@ -11,6 +11,7 @@
             </div>
             <div class="nav-menu">
               <router-link to="/" class="nav-item">总体预览</router-link>
+              <router-link to="/fault-alarm" class="nav-item">故障告警</router-link>
               <router-link to="/local-analysis" class="nav-item active">局部分析</router-link>
             </div>
           </div>
@@ -157,6 +158,10 @@
       
       <!-- 中间区域：风机细节图（three.js网格形式） -->
       <div class="center-content">
+        <div class="layer-options-row">
+          <el-checkbox v-model="showHorizontalWindLayer" class="layer-checkbox">水平风速仿真图</el-checkbox>
+          <el-checkbox v-model="showVerticalWindLayer" class="layer-checkbox">垂直风速仿真图</el-checkbox>
+        </div>
         <div ref="threeJsContainer" class="three-js-container"></div>
       </div>
 
@@ -299,6 +304,8 @@ export default {
       power: []
     })
     const loading = ref(false)
+    const showHorizontalWindLayer = ref(true)
+    const showVerticalWindLayer = ref(false)
 
     // 图表引用
     const powerChart = ref(null)
@@ -995,6 +1002,8 @@ export default {
       powerChart,
       alertChart,
       threeJsContainer,
+      showHorizontalWindLayer,
+      showVerticalWindLayer,
       formatPower,
       refreshData
     }
@@ -1332,16 +1341,39 @@ export default {
   flex: 1;
   min-height: 0;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: stretch;
   background: rgba(39, 64, 139, 0.3);
   border-radius: 12px;
   overflow: hidden;
 }
 
+.layer-options-row {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 14px;
+  background: rgba(39, 64, 139, 0.6);
+  border-bottom: 1px solid rgba(79, 195, 247, 0.35);
+  flex-shrink: 0;
+}
+
+.layer-checkbox :deep(.el-checkbox__label) {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.layer-checkbox :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
+  color: #4FC3F7;
+}
+
 .three-js-container {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
 }
 
 /* 右侧区域（占20%宽度） */

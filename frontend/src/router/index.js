@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Dashboard from '../views/Dashboard.vue'
+import FaultAlarm from '../views/FaultAlarm.vue'
 import Analysis from '../views/Analysis.vue'
 import LocalAnalysis from '../views/LocalAnalysis.vue'
 import Settings from '../views/Settings.vue'
@@ -11,6 +12,11 @@ const router = createRouter({
       path: '/',
       name: 'dashboard',
       component: Dashboard
+    },
+    {
+      path: '/fault-alarm',
+      name: 'faultAlarm',
+      component: FaultAlarm
     },
     {
       path: '/analysis',

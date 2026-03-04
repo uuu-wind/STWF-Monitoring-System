@@ -16,6 +16,7 @@
             </div>
             <div class="nav-menu">
               <router-link to="/" class="nav-item active">总体预览</router-link>
+              <router-link to="/fault-alarm" class="nav-item">故障告警</router-link>
               <router-link to="/local-analysis" class="nav-item">局部分析</router-link>
             </div>
           </div>
@@ -45,7 +46,7 @@
 
     <!-- 主要内容区域 -->
     <div class="main-content">
-      <!-- 上部分：数据和右侧图表 -->
+      <!-- 上部分：数据区域 -->
       <div class="top-main-content">
         <!-- 左侧数据区域 -->
         <div class="left-data-content">
@@ -73,39 +74,38 @@
             </el-card>
           </div>
         </div>
+      </div>
+
+      <!-- 底部区域：警告信息 + 发电量对比 -->
+      <div class="bottom-row">
+      <!-- 底部区域：警告信息 -->
+      <div class="bottom-content">
+        <!-- 实际发电量 -->
+        <div class="generation-section">
+          <el-card shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span>实际发电量</span>
+              </div>
+            </template>
+            <div class="generation-grid">
+              <div class="generation-item">
+                <div class="generation-title">光热电站发电量</div>
+                <div class="generation-value">{{ formatKilowatt(actualGeneration.solarThermal) }} <span class="generation-unit">kW</span></div>
+              </div>
+              <div class="generation-item">
+                <div class="generation-title">挡风墙风力发电量</div>
+                <div class="generation-value">{{ formatKilowatt(actualGeneration.windWall) }} <span class="generation-unit">kW</span></div>
+              </div>
+            </div>
+          </el-card>
+        </div>
+      </div>
 
         <!-- 右侧区域（占25%宽度） -->
         <div class="right-content">
-          <!-- 上部分：故障饼状图 -->
-          <div class="chart-item top-chart">
-            <el-card shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <span>故障分布</span>
-                </div>
-              </template>
-              <div class="chart-container">
-                <div ref="faultPieChart" class="chart"></div>
-              </div>
-            </el-card>
-          </div>
-
-          <!-- 中部分：总故障数折线图 -->
-          <div class="chart-item middle-chart">
-            <el-card shadow="hover">
-              <template #header>
-                <div class="card-header">
-                  <span>每日总故障数</span>
-                </div>
-              </template>
-              <div class="chart-container">
-                <div ref="faultLineChart" class="chart"></div>
-              </div>
-            </el-card>
-          </div>
-
           <!-- 下部分：当日发电量折线图 -->
-          <div class="chart-item bottom-chart">
+          <div class="chart-item power-chart">
             <el-card shadow="hover">
               <template #header>
                 <div class="card-header">
@@ -117,33 +117,6 @@
               </div>
             </el-card>
           </div>
-        </div>
-      </div>
-
-      <!-- 底部区域：警告信息 -->
-      <div class="bottom-content">
-        <!-- 警告信息 -->
-        <div class="warnings-section">
-          <el-card shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <span>最新警告信息</span>
-                <el-button type="text" size="small">查看全部</el-button>
-              </div>
-            </template>
-            <div class="warnings-list">
-              <el-alert
-                v-for="warning in warnings"
-                :key="warning.id"
-                :title="warning.title"
-                :description="warning.description"
-                :type="warning.type"
-                :closable="false"
-                show-icon
-                class="warning-item"
-              />
-            </div>
-          </el-card>
         </div>
       </div>
     </div>
@@ -202,21 +175,14 @@ export default {
     const currentPage = ref(1)
     const pageSize = ref(8)
     const dailyStats = ref({ totalGeneration: 0, avgPower: 0, maxPower: 0, runTime: 0, avgEfficiency: 0 })
-    const warnings = ref([])
-    const faultDistribution = ref([])
-    const dailyFaults = ref({ dates: [], counts: [] })
     const powerComparison = ref({ hours: [], actual: [], predicted: [] })
     const loading = ref(false)
 
     // 图表引用
-    const faultPieChart = ref(null)
-    const faultLineChart = ref(null)
     const powerLineChart = ref(null)
     const threeJsContainer = ref(null)
 
     // 图表实例
-    let faultPieChartInstance = null
-    let faultLineChartInstance = null
     let powerLineChartInstance = null
 
     // Three.js相关
@@ -240,6 +206,17 @@ export default {
         runningCount: running,
         warningCount: warning,
         stoppedCount: stopped
+      }
+    })
+
+    const actualGeneration = computed(() => {
+      const totalPower = Number(stats.value.totalPower || dailyStats.value.avgPower || 0)
+      const solarThermal = Math.round(totalPower * 0.5)
+      const windWall = Math.round(totalPower - solarThermal)
+
+      return {
+        solarThermal,
+        windWall
       }
     })
 
@@ -269,42 +246,6 @@ export default {
       }
     }
 
-    // 获取警告信息
-    const fetchWarnings = async () => {
-      try {
-        const response = await apiClient.get('/warnings')
-        warnings.value = response.data
-      } catch (error) {
-        console.error('获取警告信息失败:', error)
-        ElMessage.error('获取警告信息失败')
-      }
-    }
-
-    // 获取故障分布数据
-    const fetchFaultDistribution = async () => {
-      try {
-        const response = await apiClient.get('/faults/distribution')
-        faultDistribution.value = response.data
-        console.log(faultDistribution.value)
-        updateFaultPieChart()
-      } catch (error) {
-        console.error('获取故障分布数据失败:', error)
-        ElMessage.error('获取故障分布数据失败')
-      }
-    }
-
-    // 获取每日故障数数据
-    const fetchDailyFaults = async () => {
-      try {
-        const response = await apiClient.get('/faults/daily')
-        dailyFaults.value = response.data
-        updateFaultLineChart()
-      } catch (error) {
-        console.error('获取每日故障数数据失败:', error)
-        ElMessage.error('获取每日故障数数据失败')
-      }
-    }
-
     // 获取发电量对比数据
     const fetchPowerComparison = async () => {
       try {
@@ -325,15 +266,18 @@ export default {
       return power.toFixed(0) + ' kW'
     }
 
+    const formatKilowatt = (power) => {
+      return Number(power || 0).toLocaleString('zh-CN', {
+        maximumFractionDigits: 0
+      })
+    }
+
     const refreshData = async () => {
       try {
         loading.value = true
         await Promise.all([
           fetchTurbines(),
           fetchDailyStats(),
-          fetchWarnings(),
-          fetchFaultDistribution(),
-          fetchDailyFaults(),
           fetchPowerComparison()
         ])
         ElMessage.success('数据已刷新')
@@ -355,211 +299,6 @@ export default {
     // 跳转到设置页面
     const navigateToSettings = () => {
       router.push('/settings')
-    }
-
-    // 初始化故障饼状图
-    const initFaultPieChart = () => {
-      if (faultPieChart.value) {
-        // 确保 DOM 元素有尺寸
-        if (faultPieChart.value.clientWidth === 0 || faultPieChart.value.clientHeight === 0) {
-          // 等待 DOM 渲染完成后重试
-          setTimeout(() => {
-            initFaultPieChart()
-          }, 100)
-          return
-        }
-        faultPieChartInstance = echarts.init(faultPieChart.value)
-        updateFaultPieChart()
-      }
-    }
-
-    // 更新故障饼状图
-    const updateFaultPieChart = () => {
-      if (!faultPieChartInstance)
-      {
-        console.log('故障饼状图实例不存在，尝试初始化')
-        // 尝试初始化图表
-        initFaultPieChart()
-        return
-      }
-      
-      const option = {
-        tooltip: {
-          trigger: 'item',
-          formatter: '{a} <br/>{b}: {c} ({d}%)',
-          textStyle: {
-            color: 'white'
-          },
-          backgroundColor: 'rgba(39, 64, 139, 0.8)',
-          borderColor: 'rgba(79, 195, 247, 0.5)',
-          borderWidth: 1
-        },
-        legend: {
-          orient: 'vertical',
-          right: '5%',
-          top: 'center',
-          itemWidth: 10,
-          itemHeight: 10,
-          itemGap: 6,
-          data: faultDistribution.value.map(item => item.name),
-          textStyle: {
-            color: 'rgba(255, 255, 255, 0.8)',
-            fontSize: 10
-          },
-          formatter: '{name}'
-        },
-        series: [
-          {
-            name: '故障分布',
-            type: 'pie',
-            radius: ['35%', '60%'],
-            center: ['40%', '50%'],
-            avoidLabelOverlap: false,
-            itemStyle: {
-              borderRadius: 10,
-              borderColor: 'rgba(39, 64, 139, 0.6)',
-              borderWidth: 2,
-              shadowBlur: 10,
-              shadowOffsetX: 0,
-              shadowColor: 'rgba(79, 195, 247, 0.5)'
-            },
-            label: {
-              show: false,
-              position: 'center'
-            },
-            emphasis: {
-              label: {
-                show: true,
-                fontSize: '18',
-                fontWeight: 'bold',
-                color: 'white'
-              },
-              itemStyle: {
-                shadowBlur: 20,
-                shadowOffsetX: 0,
-                shadowColor: 'rgba(79, 195, 247, 0.8)'
-              }
-            },
-            labelLine: {
-              show: false
-            },
-            data: faultDistribution.value
-          }
-        ]
-      }
-      
-      faultPieChartInstance.setOption(option)
-    }
-
-    // 初始化总故障数折线图
-    const initFaultLineChart = () => {
-      if (faultLineChart.value) {
-        // 确保 DOM 元素有尺寸
-        if (faultLineChart.value.clientWidth === 0 || faultLineChart.value.clientHeight === 0) {
-          // 等待 DOM 渲染完成后重试
-          setTimeout(() => {
-            initFaultLineChart()
-          }, 100)
-          return
-        }
-        faultLineChartInstance = echarts.init(faultLineChart.value)
-        updateFaultLineChart()
-      }
-    }
-
-    // 更新总故障数折线图
-    const updateFaultLineChart = () => {
-      if (!faultLineChartInstance)
-      {
-        console.log('总故障数折线图实例不存在，尝试初始化')
-        // 尝试初始化图表
-        initFaultLineChart()
-        return
-      }
-      
-      const option = {
-        tooltip: {
-          trigger: 'axis',
-          textStyle: {
-            color: 'white'
-          },
-          backgroundColor: 'rgba(39, 64, 139, 0.8)',
-          borderColor: 'rgba(79, 195, 247, 0.5)',
-          borderWidth: 1
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          containLabel: true,
-          backgroundColor: 'transparent'
-        },
-        xAxis: {
-          type: 'category',
-          boundaryGap: false,
-          data: dailyFaults.value.dates || [],
-          axisLine: {
-            lineStyle: {
-              color: 'rgba(255, 255, 255, 0.3)'
-            }
-          },
-          axisLabel: {
-            color: 'rgba(255, 255, 255, 0.8)'
-          },
-          splitLine: {
-            show: false
-          }
-        },
-        yAxis: {
-          type: 'value',
-          name: '故障数',
-          nameTextStyle: {
-            color: 'rgba(255, 255, 255, 0.8)'
-          },
-          axisLine: {
-            lineStyle: {
-              color: 'rgba(255, 255, 255, 0.3)'
-            }
-          },
-          axisLabel: {
-            color: 'rgba(255, 255, 255, 0.8)'
-          },
-          splitLine: {
-            lineStyle: {
-              color: 'rgba(255, 255, 255, 0.1)'
-            }
-          }
-        },
-        series: [
-          {
-            name: '故障数',
-            data: dailyFaults.value.counts || [],
-            type: 'line',
-            smooth: true,
-            lineStyle: {
-              width: 3,
-              color: '#4fc3f7',
-              shadowBlur: 10,
-              shadowColor: 'rgba(79, 195, 247, 0.7)'
-            },
-            itemStyle: {
-              color: '#4fc3f7',
-              borderColor: 'rgba(39, 64, 139, 0.6)',
-              borderWidth: 2,
-              shadowBlur: 10,
-              shadowColor: 'rgba(79, 195, 247, 0.7)'
-            },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: 'rgba(79, 195, 247, 0.5)' },
-                { offset: 1, color: 'rgba(79, 195, 247, 0.1)' }
-              ])
-            }
-          }
-        ]
-      }
-      
-      faultLineChartInstance.setOption(option)
     }
 
     // 初始化当日发电量折线图
@@ -700,8 +439,6 @@ export default {
 
     // 处理窗口大小变化
     const handleResize = () => {
-      faultPieChartInstance?.resize()
-      faultLineChartInstance?.resize()
       powerLineChartInstance?.resize()
     }
 
@@ -870,8 +607,6 @@ export default {
       // 等待DOM渲染完成
       nextTick(() => {
         if (isUnmounted) return
-        initFaultPieChart()
-        initFaultLineChart()
         initPowerLineChart()
         initThreeJs()
       })
@@ -897,8 +632,6 @@ export default {
       window.removeEventListener('resize', handleResize)
       
       // 销毁图表实例
-      faultPieChartInstance?.dispose()
-      faultLineChartInstance?.dispose()
       powerLineChartInstance?.dispose()
 
       // 清理Three.js资源
@@ -913,12 +646,11 @@ export default {
       currentPage,
       pageSize,
       dailyStats,
-      warnings,
-      faultPieChart,
-      faultLineChart,
+      actualGeneration,
       powerLineChart,
       threeJsContainer,
       formatPower,
+      formatKilowatt,
       refreshData,
       navigateToTurbine,
       navigateToSettings
@@ -1087,7 +819,7 @@ export default {
   z-index: 2;
 }
 
-/* 上部分：数据和右侧图表 */
+/* 上部分：数据区域 */
 .top-main-content {
   display: flex;
   gap: 15px;
@@ -1097,7 +829,15 @@ export default {
 
 /* 左侧数据区域 */
 .left-data-content {
-  width: calc(100% - 25%);
+  width: 100%;
+  display: flex;
+  gap: 15px;
+}
+
+/* 底部行：警告信息 + 发电量对比 */
+.bottom-row {
+  width: 100%;
+  height: 30%;
   display: flex;
   gap: 15px;
 }
@@ -1144,71 +884,75 @@ export default {
 /* 底部区域：警告信息 */
 .bottom-content {
   width: 74%;
-  height: 30%;
+  height: 100%;
 }
 
-/* 警告信息 */
-.warnings-section {
+/* 实际发电量 */
+.generation-section {
   width: 100%;
   height: 100%;
 }
 
-.warnings-section .el-card {
+.generation-section .el-card {
   height: 100%;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
 }
 
-.warnings-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.generation-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
   padding: 0 20px 20px 20px;
 }
 
-/* 自定义滚动条 */
-.warnings-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.warnings-list::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.warnings-list::-webkit-scrollbar-thumb {
-  background: rgba(79, 195, 247, 0.5);
-  border-radius: 3px;
-}
-
-.warnings-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(79, 195, 247, 0.8);
-}
-
-.warning-item {
+.generation-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(79, 195, 247, 0.35);
   border-radius: 8px;
-  font-size: 12px;
-  padding: 8px 16px;
-  margin-bottom: 5px;
-  height: auto;
-  min-height: 40px;
+  padding: 12px;
+  min-height: 0;
+}
+
+.generation-title {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 16px;
+}
+
+.generation-value {
+  font-size: clamp(28px, 2.8vw, 44px);
+  font-weight: 700;
+  color: #4FC3F7;
+  text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+  line-height: 1;
+}
+
+.generation-unit {
+  font-size: 0.42em;
+  margin-left: 6px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* 右侧内容区域（占25%宽度） */
 .right-content {
   width: 25%;
-  height: 147%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 15px;
 }
 
 /* 图表项 */
 .chart-item {
-  height: calc((100% - 30px) / 3);
+  height: 100%;
   min-height: 0;
 }
 
@@ -1247,14 +991,21 @@ export default {
   .main-content {
     flex-direction: column;
   }
+
+  .bottom-row {
+    flex-direction: column;
+    height: auto;
+  }
   
-  .left-content,
+  .left-data-content,
+  .bottom-content,
   .right-content {
     width: 100%;
   }
   
-  .left-content {
-    flex-direction: column;
+  .bottom-content,
+  .right-content {
+    height: 320px;
   }
   
   .data-section {
@@ -1271,6 +1022,10 @@ export default {
   .data-item {
     flex: 1 1 calc(25% - 20px);
     min-width: 150px;
+  }
+
+  .generation-grid {
+    grid-template-columns: 1fr;
   }
 }
 
