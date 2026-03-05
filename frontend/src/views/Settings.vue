@@ -276,6 +276,20 @@
                 >
               </div>
             </div>
+            <div class="row">
+              <div class="col-4">
+                <label class="form-label">风机朝向 (0-360°)</label>
+                <input 
+                  v-model.number="turbineConfig.info.orientation" 
+                  type="number" 
+                  min="0"
+                  max="360"
+                  step="0.1"
+                  class="form-control"
+                  placeholder="例如: 135"
+                >
+              </div>
+            </div>
           </div>
 
           <!-- 风机系统信息 -->
@@ -524,7 +538,8 @@ const turbineConfig = reactive({
     ratedPower: 0,
     hubHeight: 0,
     bladeCount: 0,
-    speedRange: ''
+    speedRange: '',
+    orientation: 0
   },
   system: {
     model: '',
@@ -779,6 +794,7 @@ const loadTurbineConfig = async () => {
       turbineConfig.info.hubHeight = 0
       turbineConfig.info.bladeCount = 0
       turbineConfig.info.speedRange = ''
+      turbineConfig.info.orientation = 0
       
       turbineConfig.system.model = ''
       turbineConfig.system.manufacturer = ''
@@ -797,6 +813,7 @@ const loadTurbineConfig = async () => {
       turbineConfig.info.hubHeight = data.info.hubHeight || 0
       turbineConfig.info.bladeCount = data.info.bladeCount || 0
       turbineConfig.info.speedRange = data.info.speedRange || ''
+      turbineConfig.info.orientation = Number(data.info.orientation ?? 0)
       
       turbineConfig.system.model = data.system.model || ''
       turbineConfig.system.manufacturer = data.system.manufacturer || ''
@@ -817,6 +834,7 @@ const loadTurbineConfig = async () => {
     turbineConfig.info.hubHeight = 0
     turbineConfig.info.bladeCount = 0
     turbineConfig.info.speedRange = ''
+    turbineConfig.info.orientation = 0
     
     turbineConfig.system.model = ''
     turbineConfig.system.manufacturer = ''
@@ -876,6 +894,7 @@ const copyFromTurbine = async (sourceTurbineId) => {
       turbineConfig.info.hubHeight = data.info.hubHeight || 0
       turbineConfig.info.bladeCount = data.info.bladeCount || 0
       turbineConfig.info.speedRange = data.info.speedRange || ''
+      turbineConfig.info.orientation = Number(data.info.orientation ?? 0)
       
       turbineConfig.system.model = data.system.model || ''
       turbineConfig.system.manufacturer = data.system.manufacturer || ''

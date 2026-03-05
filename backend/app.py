@@ -97,6 +97,7 @@ class TurbineInfo(TurbineBase):
     hubHeight: float
     bladeCount: int
     speedRange: str
+    orientation: float = 0.0
 
 class RuntimeData(BaseModel):
     dailyGeneration: float
@@ -117,6 +118,15 @@ class WindData(BaseModel):
     turbine_id: str
     speed: float
     direction: float
+
+class WindHistoryPoint(BaseModel):
+    timestamp: str
+    speed: float
+    direction: float
+
+class WindHistoryResponse(BaseModel):
+    turbine_id: str
+    points: List[WindHistoryPoint]
 
 class WarningStats(BaseModel):
     error: int
@@ -388,6 +398,7 @@ class TurbineInfoData(BaseModel):
     hubHeight: float
     bladeCount: int
     speedRange: str
+    orientation: float = 0.0
 
 class TurbineSystemData(BaseModel):
     model: str
@@ -453,7 +464,8 @@ def save_turbine_config(turbine_id: str, config: TurbineConfigRequest):
                 "ratedPower": config.info.ratedPower,
                 "hubHeight": config.info.hubHeight,
                 "bladeCount": config.info.bladeCount,
-                "speedRange": config.info.speedRange
+                "speedRange": config.info.speedRange,
+                "orientation": config.info.orientation
             },
             "system": {
                 "model": config.system.model,
@@ -539,7 +551,8 @@ def get_turbine_info(turbine_id: str):
             ratedPower=float(info_data["ratedPower"]),
             hubHeight=float(info_data["hubHeight"]),
             bladeCount=int(info_data["bladeCount"]),
-            speedRange=info_data["speedRange"]
+            speedRange=info_data["speedRange"],
+            orientation=float(info_data.get("orientation", 0.0))
         )
         return info
     except HTTPException:
@@ -630,6 +643,55 @@ def get_turbine_wind(turbine_id: str):
     except Exception as e:
         print(f"InfluxDB query failed: {e}")
 
+@app.get("/api/turbines/{turbine_id}/wind/history", response_model=WindHistoryResponse)
+def get_turbine_wind_history(turbine_id: str, minutes: int = 60):
+    """Get wind speed and direction history for past N minutes (default 60)."""
+    try:
+        history_minutes = max(1, min(minutes, 180))
+
+        now_utc = pd.Timestamp.now(tz='UTC').floor('min')
+        start_utc = now_utc - pd.Timedelta(minutes=history_minutes - 1)
+        end_exclusive = now_utc + pd.Timedelta(minutes=1)
+
+        query = f"""
+            SELECT
+                date_bin(interval '1 minute', time) AS time_bucket,
+                AVG(speed) AS avg_speed,
+                AVG(direction) AS avg_direction
+            FROM 'wind'
+            WHERE time >= TIMESTAMP '{start_utc.strftime("%Y-%m-%d %H:%M:%S")}'
+              AND time < TIMESTAMP '{end_exclusive.strftime("%Y-%m-%d %H:%M:%S")}'
+              AND turbine_id = '{turbine_id}'
+            GROUP BY 1
+            ORDER BY 1 ASC
+        """
+
+        result = client.query(query=query, mode="pandas")
+        if result.empty:
+            return WindHistoryResponse(turbine_id=turbine_id, points=[])
+
+        result["time_bucket"] = pd.to_datetime(result["time_bucket"])
+        if result["time_bucket"].dt.tz is None:
+            result["time_bucket"] = result["time_bucket"].dt.tz_localize("UTC")
+
+        points: List[WindHistoryPoint] = []
+        for _, row in result.iterrows():
+            speed = float(row.get("avg_speed", 0.0) or 0.0)
+            direction = float(row.get("avg_direction", 0.0) or 0.0) % 360
+            timestamp = row["time_bucket"].tz_convert("Asia/Shanghai").strftime("%Y-%m-%d %H:%M:%S")
+            points.append(
+                WindHistoryPoint(
+                    timestamp=timestamp,
+                    speed=speed,
+                    direction=direction
+                )
+            )
+
+        return WindHistoryResponse(turbine_id=turbine_id, points=points)
+    except Exception as e:
+        print(f"InfluxDB query failed: {e}")
+        return WindHistoryResponse(turbine_id=turbine_id, points=[])
+
 @app.get("/api/turbines/{turbine_id}/alerts", response_model=WarningStats)
 def get_turbine_alerts(turbine_id: str):
     """Get turbine alert statistics"""
@@ -697,7 +759,7 @@ def get_turbine_power_trend(turbine_id: str):
         forecast_series = []
 
         try:
-            fc = forecast_engine.GetForecast()
+            fc = forecast_engine.GetForecast(turbine_id)
             fc_values = (fc or {}).get("result", [])
             
             while len(fc_values) < 4:
@@ -1187,6 +1249,7 @@ def save_ai_config(config: AIConfigRequest):
 class TrainRequest(BaseModel):
     turbine_id: str = "T001"
     use_test_data: bool = False
+    train_all: bool = False
 
 class TrainResponse(BaseModel):
     success: bool
@@ -1197,12 +1260,14 @@ class TrainResponse(BaseModel):
     rmse: Optional[float] = None
     r2: Optional[float] = None
     model_weight: Optional[float] = None
+    trained_count: Optional[int] = None
+    failed_count: Optional[int] = None
 
 @app.post("/api/ai/train", response_model=TrainResponse)
 def train_model(request: TrainRequest):
     """训练AI模型"""
     try:
-        print(f"[{datetime.datetime.now()}] 开始训练模型，turbine_id={request.turbine_id}, use_test_data={request.use_test_data}")
+        print(f"[{datetime.datetime.now()}] 开始训练模型，turbine_id={request.turbine_id}, train_all={request.train_all}, use_test_data={request.use_test_data}")
         
         cfg = TrainConfig(
             influx_url=INFLUXDB_URL,
@@ -1213,9 +1278,19 @@ def train_model(request: TrainRequest):
         )
         
         trainer = GBDTTrainer(cfg)
-        report = trainer.train(turbine_id=request.turbine_id, use_test_data=request.use_test_data)
-        
-        print(f"[{datetime.datetime.now()}] 模型训练完成: {report}")
+        report = None
+        summary = None
+        response_turbine_id = request.turbine_id
+
+        if request.train_all:
+            summary = trainer.train_all(use_test_data=request.use_test_data)
+            response_turbine_id = "ALL"
+            print(f"[{datetime.datetime.now()}] 全量训练完成: success={summary.get('success')}, failed={summary.get('failed')}")
+        else:
+            report = trainer.train(turbine_id=request.turbine_id, use_test_data=request.use_test_data)
+            print(f"[{datetime.datetime.now()}] 模型训练完成: {report}")
+
+        forecast_engine.refresh_models()
         
         # 读取训练后的权重
         model_weight = None
@@ -1225,19 +1300,32 @@ def train_model(request: TrainRequest):
             if os.path.exists(config_file):
                 with open(config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                    model_weight = config.get("model_weight")
+                    model_weight_map = config.get("model_weights", {})
+                    if (
+                        not request.train_all
+                        and isinstance(model_weight_map, dict)
+                        and str(response_turbine_id).upper() in model_weight_map
+                    ):
+                        model_weight = model_weight_map.get(str(response_turbine_id).upper())
+                    else:
+                        model_weight = config.get("model_weight")
         except Exception as e:
             print(f"读取权重失败: {e}")
         
         return TrainResponse(
             success=True,
-            message="模型训练成功",
-            turbine_id=report.get("turbine_id", request.turbine_id),
-            rows=report.get("rows"),
-            mae=report.get("mae"),
-            rmse=report.get("rmse"),
-            r2=report.get("r2"),
-            model_weight=model_weight
+            message=(
+                f"全部风机模型训练完成: 成功 {summary.get('success', 0)} 台, 失败 {summary.get('failed', 0)} 台"
+                if request.train_all else "模型训练成功"
+            ),
+            turbine_id=(report.get("turbine_id", request.turbine_id) if report else response_turbine_id),
+            rows=(report.get("rows") if report else None),
+            mae=(report.get("mae") if report else None),
+            rmse=(report.get("rmse") if report else None),
+            r2=(report.get("r2") if report else None),
+            model_weight=model_weight,
+            trained_count=(summary.get("success") if summary else 1),
+            failed_count=(summary.get("failed") if summary else 0)
         )
     except Exception as e:
         print(f"[{datetime.datetime.now()}] 模型训练失败: {e}")

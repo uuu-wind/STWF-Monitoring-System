@@ -121,6 +121,10 @@
                   <span class="info-label">安装日期</span>
                   <span class="info-value">{{ systemInfo.installationDate }}</span>
                 </div>
+                <div class="info-item">
+                  <span class="info-label">风机朝向</span>
+                  <span class="info-value">{{ formatOrientation(turbineInfo.orientation) }}</span>
+                </div>
               </div>
             </div>
           </el-card>
@@ -175,18 +179,14 @@
                 <span>风速风向</span>
               </div>
             </template>
-            <div class="wind-compass">
-              <div class="compass-circle">
-                <div class="compass-rose">
-                  <div class="compass-direction">N</div>
-                  <div class="compass-direction">E</div>
-                  <div class="compass-direction">S</div>
-                  <div class="compass-direction">W</div>
-                </div>
-                <div class="wind-indicator" :style="{ transform: `rotate(${windData.direction}deg)` }">
-                  <div class="wind-arrow"></div>
-                </div>
-                <div class="wind-speed">{{ windData.speed }} m/s</div>
+            <div class="wind-split">
+              <div class="wind-panel">
+                <div class="wind-panel-title">风速</div>
+                <div ref="windSpeedChart" class="wind-panel-chart"></div>
+              </div>
+              <div class="wind-panel">
+                <div class="wind-panel-title">风向</div>
+                <div ref="windRoseChart" class="wind-panel-chart"></div>
               </div>
             </div>
           </el-card>
@@ -275,7 +275,8 @@ export default {
       ratedPower: 0,
       hubHeight: 0,
       bladeCount: 0,
-      speedRange: ''
+      speedRange: '',
+      orientation: 0
     })
     const runtimeData = ref({ 
       dailyGeneration: 0,
@@ -303,16 +304,21 @@ export default {
       hours: [],
       power: []
     })
+    const windHistory = ref([])
     const loading = ref(false)
     const showHorizontalWindLayer = ref(true)
     const showVerticalWindLayer = ref(false)
 
     // 图表引用
+    const windSpeedChart = ref(null)
+    const windRoseChart = ref(null)
     const powerChart = ref(null)
     const alertChart = ref(null)
     const threeJsContainer = ref(null)
 
     // 图表实例
+    let windSpeedChartInstance = null
+    let windRoseChartInstance = null
     let powerChartInstance = null
     let alertChartInstance = null
 
@@ -331,6 +337,15 @@ export default {
         return (power / 1000).toFixed(1) + ' MW'
       }
       return power.toFixed(0) + ' kW'
+    }
+
+    const formatOrientation = (orientation) => {
+      const orientationValue = Number(orientation)
+      if (!Number.isFinite(orientationValue)) {
+        return '--'
+      }
+      const normalized = ((orientationValue % 360) + 360) % 360
+      return `${normalized.toFixed(1)}°`
     }
 
     // 获取风机信息
@@ -383,12 +398,291 @@ export default {
     // 获取风速风向数据
     const fetchWindData = async () => {
       try {
-        const response = await apiClient.get(`/turbines/${turbineId.value}/wind`)
-        windData.value = response.data
+        const response = await apiClient.get(`/turbines/${turbineId.value}/wind/history`, {
+          params: {
+            minutes: 60
+          }
+        })
+
+        const points = response.data?.points || []
+        if (points.length > 0) {
+          windHistory.value = points.map(item => ({
+            timestamp: new Date(String(item.timestamp).replace(' ', 'T')),
+            speed: Number(item.speed) || 0,
+            direction: Number(item.direction) || 0
+          }))
+
+          const latest = windHistory.value[windHistory.value.length - 1]
+          windData.value = {
+            turbine_id: response.data.turbine_id || turbineId.value,
+            speed: latest.speed,
+            direction: latest.direction
+          }
+        } else {
+          const latestResponse = await apiClient.get(`/turbines/${turbineId.value}/wind`)
+          windData.value = latestResponse.data
+          windHistory.value = [{
+            timestamp: new Date(),
+            speed: Number(windData.value.speed) || 0,
+            direction: Number(windData.value.direction) || 0
+          }]
+        }
+
+        updateWindSpeedChart()
+        updateWindRoseChart()
       } catch (error) {
         console.error('获取风速风向数据失败:', error)
         ElMessage.error('获取风速风向数据失败')
       }
+    }
+
+    const initWindSpeedChart = () => {
+      if (windSpeedChart.value) {
+        if (windSpeedChart.value.clientWidth === 0 || windSpeedChart.value.clientHeight === 0) {
+          setTimeout(() => {
+            initWindSpeedChart()
+          }, 100)
+          return
+        }
+        windSpeedChartInstance = echarts.init(windSpeedChart.value)
+        updateWindSpeedChart()
+      }
+    }
+
+    const initWindRoseChart = () => {
+      if (windRoseChart.value) {
+        if (windRoseChart.value.clientWidth === 0 || windRoseChart.value.clientHeight === 0) {
+          setTimeout(() => {
+            initWindRoseChart()
+          }, 100)
+          return
+        }
+        windRoseChartInstance = echarts.init(windRoseChart.value)
+        updateWindRoseChart()
+      }
+    }
+
+    const updateWindSpeedChart = () => {
+      if (!windSpeedChartInstance) {
+        initWindSpeedChart()
+        return
+      }
+
+      const history = windHistory.value
+      const xAxisData = history.map(item => {
+        const date = new Date(item.timestamp)
+        const hh = String(date.getHours()).padStart(2, '0')
+        const mm = String(date.getMinutes()).padStart(2, '0')
+        const ss = String(date.getSeconds()).padStart(2, '0')
+        return `${hh}:${mm}:${ss}`
+      })
+      const speedData = history.map(item => item.speed)
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          formatter: params => {
+            if (!params.length) return ''
+            const point = params[0]
+            return `${point.axisValue}<br/>${point.marker} 风速: ${point.data} m/s`
+          },
+          textStyle: {
+            color: 'white'
+          },
+          backgroundColor: 'rgba(39, 64, 139, 0.8)',
+          borderColor: 'rgba(79, 195, 247, 0.5)',
+          borderWidth: 1
+        },
+        grid: {
+          left: '10%',
+          right: '8%',
+          top: '15%',
+          bottom: '18%'
+        },
+        xAxis: {
+          type: 'category',
+          data: xAxisData,
+          boundaryGap: false,
+          axisLabel: {
+            color: 'rgba(255, 255, 255, 0.8)',
+            fontSize: 10,
+            interval: 'auto'
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.4)'
+            }
+          }
+        },
+        yAxis: {
+          type: 'value',
+          name: 'm/s',
+          nameTextStyle: {
+            color: 'rgba(255, 255, 255, 0.8)',
+            padding: [0, 0, 0, -8]
+          },
+          axisLabel: {
+            color: 'rgba(255, 255, 255, 0.8)',
+            fontSize: 10
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.4)'
+            }
+          },
+          splitLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.12)'
+            }
+          }
+        },
+        series: [
+          {
+            name: '风速',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            data: speedData,
+            lineStyle: {
+              color: '#4FC3F7',
+              width: 2
+            },
+            areaStyle: {
+              color: 'rgba(79, 195, 247, 0.18)'
+            }
+          }
+        ]
+      }
+
+      windSpeedChartInstance.setOption(option)
+    }
+
+    const updateWindRoseChart = () => {
+      if (!windRoseChartInstance) {
+        initWindRoseChart()
+        return
+      }
+
+      const samples = windHistory.value.length
+        ? windHistory.value.map(item => ({
+            direction: ((Number(item.direction) || 0) % 360 + 360) % 360,
+            speed: Math.max(0, Number(item.speed) || 0)
+          }))
+        : [{
+            direction: ((Number(windData.value.direction) || 0) % 360 + 360) % 360,
+            speed: Math.max(0, Number(windData.value.speed) || 0)
+          }]
+
+      const sortedSamples = [...samples].sort((first, second) => first.direction - second.direction)
+      const pointData = sortedSamples.map(item => [item.speed, item.direction])
+      const loopLineData = pointData.length > 1
+        ? [...pointData, pointData[0]]
+        : pointData
+      const maxRadius = Math.max(12, Math.ceil(Math.max(...samples.map(item => item.speed), 0) + 2))
+
+      const option = {
+        tooltip: {
+          trigger: 'item',
+          formatter: params => {
+            const value = params.value || []
+            const speed = Number(value[0]) || 0
+            const direction = Number(value[1]) || 0
+            return `风向: ${direction.toFixed(1)}°<br/>风速: ${speed.toFixed(2)} m/s`
+          },
+          textStyle: {
+            color: 'white'
+          },
+          backgroundColor: 'rgba(39, 64, 139, 0.8)',
+          borderColor: 'rgba(79, 195, 247, 0.5)',
+          borderWidth: 1
+        },
+        polar: {
+          radius: '78%'
+        },
+        angleAxis: {
+          type: 'value',
+          min: 0,
+          max: 360,
+          startAngle: 90,
+          clockwise: false,
+          interval: 45,
+          axisLabel: {
+            formatter: value => {
+              const labels = {
+                0: 'N',
+                45: 'NE',
+                90: 'E',
+                135: 'SE',
+                180: 'S',
+                225: 'SW',
+                270: 'W',
+                315: 'NW',
+                360: 'N'
+              }
+              return labels[value] ?? ''
+            },
+            color: 'rgba(255, 255, 255, 0.85)',
+            fontSize: 10
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.35)'
+            }
+          }
+        },
+        radiusAxis: {
+          min: 0,
+          max: maxRadius,
+          splitNumber: 4,
+          axisLabel: {
+            color: 'rgba(255, 255, 255, 0.65)',
+            fontSize: 10
+          },
+          axisLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.35)'
+            }
+          },
+          splitLine: {
+            lineStyle: {
+              color: 'rgba(255, 255, 255, 0.12)'
+            }
+          }
+        },
+        series: [
+          {
+            name: '风场轨迹',
+            type: 'line',
+            coordinateSystem: 'polar',
+            data: loopLineData,
+            symbol: 'none',
+            lineStyle: {
+              color: '#4FC3F7',
+              width: 2
+            },
+            areaStyle: {
+              color: 'rgba(79, 195, 247, 0.12)'
+            },
+            silent: true,
+            z: 1
+          },
+          {
+            name: '风速风向采样点',
+            type: 'scatter',
+            coordinateSystem: 'polar',
+            data: pointData,
+            symbolSize: 7,
+            itemStyle: {
+              color: '#FFD700',
+              borderColor: '#FFFFFF',
+              borderWidth: 1
+            },
+            z: 2
+          }
+        ]
+      }
+
+      windRoseChartInstance.setOption(option)
     }
 
     // 获取告警统计
@@ -954,6 +1248,8 @@ export default {
       // 等待DOM渲染完成
       nextTick(() => {
         if (isUnmounted) return
+        initWindSpeedChart()
+        initWindRoseChart()
         initPowerChart()
         initAlertChart()
         initThreeJs()
@@ -975,8 +1271,28 @@ export default {
       window.localAnalysisUpdateInterval = updateInterval
     })
 
+    onUnmounted(() => {
+      isUnmounted = true
+
+      if (window.localAnalysisUpdateInterval) {
+        clearInterval(window.localAnalysisUpdateInterval)
+        delete window.localAnalysisUpdateInterval
+      }
+
+      window.removeEventListener('resize', handleResize)
+
+      windSpeedChartInstance?.dispose()
+      windRoseChartInstance?.dispose()
+      powerChartInstance?.dispose()
+      alertChartInstance?.dispose()
+
+      cleanupThreeJs()
+    })
+
     // 处理窗口大小变化
     const handleResize = () => {
+      windSpeedChartInstance?.resize()
+      windRoseChartInstance?.resize()
       powerChartInstance?.resize()
       alertChartInstance?.resize()
     }
@@ -987,12 +1303,15 @@ export default {
       systemInfo,
       windData,
       alertStats,
+      windSpeedChart,
+      windRoseChart,
       powerChart,
       alertChart,
       threeJsContainer,
       showHorizontalWindLayer,
       showVerticalWindLayer,
       formatPower,
+      formatOrientation,
       refreshData
     }
   }
@@ -1417,71 +1736,67 @@ export default {
   height: 100%;
  }
 
-/* 风速风向罗盘 */
-.wind-compass {
+/* 风速风向分栏图 */
+.wind-split {
   flex: 1;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  gap: 10px;
+  min-height: 0;
 }
 
-.compass-circle {
-  position: relative;
-  width: 150px;
-  height: 150px;
-  border-radius: 50%;
-  background: rgba(39, 64, 139, 0.8);
-  border: 2px solid rgba(79, 195, 247, 0.8);
+.wind-panel {
+  width: 50%;
   display: flex;
-  justify-content: center;
-  align-items: center;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(79, 195, 247, 0.3);
+  border-radius: 8px;
+  padding: 8px;
 }
 
-.compass-rose {
-  position: absolute;
+.wind-panel-title {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 6px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.wind-panel-chart {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: 100%;
 }
 
-.compass-direction {
-  position: absolute;
-  font-size: 12px;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 0 5px rgba(79, 195, 247, 0.8);
+@media (max-width: 1600px) {
+  .wind-split {
+    flex-direction: column;
+  }
+
+  .wind-panel {
+    width: 100%;
+  }
 }
 
-.compass-direction:nth-child(1) { top: 8px; left: 50%; transform: translateX(-50%); }
-.compass-direction:nth-child(2) { top: 50%; right: 8px; transform: translateY(-50%); }
-.compass-direction:nth-child(3) { bottom: 8px; left: 50%; transform: translateX(-50%); }
-.compass-direction:nth-child(4) { top: 50%; left: 8px; transform: translateY(-50%); }
+@media (max-width: 1200px) {
+  .wind-split {
+    flex-direction: row;
+  }
 
-.wind-indicator {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  .wind-panel {
+    width: 50%;
+  }
 }
 
-.wind-arrow {
-  width: 0;
-  height: 0;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 60px solid #4FC3F7;
-  filter: drop-shadow(0 0 5px rgba(79, 195, 247, 0.8));
-  transform-origin: 50% 65px;
-}
+@media (max-width: 768px) {
+  .wind-split {
+    flex-direction: column;
+  }
 
-.wind-speed {
-  position: absolute;
-  bottom: 20px;
-  font-size: 18px;
-  font-weight: 600;
-  color: white;
-  text-shadow: 0 0 5px rgba(79, 195, 247, 0.8);
+  .wind-panel {
+    width: 100%;
+  }
 }
 
 /* 告警统计 */
@@ -1489,9 +1804,8 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
-  padding: 5px 0;
 }
 
 /* 卡片头部样式 */

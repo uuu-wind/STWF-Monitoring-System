@@ -1,0 +1,25 @@
+{
+  "T001": {
+    "info": {
+      "id": "T001",
+      "name": "",
+      "location": "",
+      "bladeLength": 0.0,
+      "rotorDiameter": 0.0,
+      "ratedPower": 0.0,
+      "hubHeight": 0.0,
+      "bladeCount": 0,
+      "speedRange": "",
+      "orientation": 90.0
+    },
+    "system": {
+      "model": "",
+      "manufacturer": "",
+      "installationDate": "",
+      "runHours": 0.0,
+      "maintenanceCycle": 0,
+      "status": "running",
+      "statusText": ""
+    }
+  }
+}

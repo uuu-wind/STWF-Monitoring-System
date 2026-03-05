@@ -20,8 +20,9 @@ class Weather:
     def _load_config(self):
         if os.path.exists(self.config_file_path):
             with open(self.config_file_path, 'r', encoding='utf-8') as f:
+                print(f"配置文件加载成功: {self.config_file_path}")
                 return json.load(f)
-        return {"latitude": 30.2936, "longitude": 120.1614, "turbine_orientation": ""}
+        return {"latitude": 9.54, "longitude": 146.27, "turbine_orientation": ""}
     
     def get_weather(self, forecast_days=2):
         params = {

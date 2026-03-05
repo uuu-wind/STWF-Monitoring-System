@@ -2,6 +2,7 @@ import os
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import List, Dict, Any
 
 import numpy as np
 import pandas as pd
@@ -69,6 +70,21 @@ class GBDTTrainer:
             database=self.config.influx_database
         )
         self.weather = Weather()
+
+    def _load_turbine_ids(self) -> List[str]:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        turbines_file = os.path.join(current_dir, "turbines.json")
+        if not os.path.exists(turbines_file):
+            return ["T001"]
+
+        try:
+            with open(turbines_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            turbine_ids = [str(turbine_id).upper() for turbine_id in data.keys()]
+            return turbine_ids if turbine_ids else ["T001"]
+        except Exception as e:
+            print(f"读取 turbines.json 失败，回退到 T001: {e}")
+            return ["T001"]
 
     def _query_hourly_power(self, turbine_id: str, use_test_data: bool = False) -> pd.DataFrame:
         """
@@ -221,6 +237,29 @@ class GBDTTrainer:
         self.calculate_and_save_optimal_weight(turbine_id, model, use_test_data=use_test_data)
         
         return report
+
+    def train_all(self, test_size: float = 0.2, use_test_data: bool = False) -> Dict[str, Any]:
+        turbine_ids = self._load_turbine_ids()
+        reports: List[Dict[str, Any]] = []
+        failed: List[Dict[str, str]] = []
+
+        for turbine_id in turbine_ids:
+            try:
+                report = self.train(turbine_id=turbine_id, test_size=test_size, use_test_data=use_test_data)
+                reports.append(report)
+            except Exception as e:
+                failed.append({
+                    "turbine_id": turbine_id,
+                    "error": str(e)
+                })
+
+        return {
+            "total": len(turbine_ids),
+            "success": len(reports),
+            "failed": len(failed),
+            "reports": reports,
+            "failed_items": failed
+        }
     
     def _get_baseline_prediction(self, weather_df):
         try:
@@ -313,7 +352,7 @@ class GBDTTrainer:
             print(f"优化权重失败: {e}")
             return 0.5
     
-    def _save_weight_to_config(self, weight):
+    def _save_weight_to_config(self, turbine_id: str, weight: float):
         try:
             current_dir = os.path.dirname(os.path.abspath(__file__))
             config_file = os.path.join(current_dir, "config.json")
@@ -323,6 +362,14 @@ class GBDTTrainer:
                     config = json.load(f)
             else:
                 config = {}
+
+            model_weights = config.get('model_weights', {})
+            if not isinstance(model_weights, dict):
+                model_weights = {}
+
+            turbine_key = str(turbine_id).upper()
+            model_weights[turbine_key] = float(weight)
+            config['model_weights'] = model_weights
             
             config['model_weight'] = float(weight)
             config['weight_timestamp'] = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')
@@ -330,7 +377,7 @@ class GBDTTrainer:
             with open(config_file, 'w', encoding='utf-8') as f:
                 json.dump(config, f, indent=2, ensure_ascii=False)
             
-            print(f"权重已保存到 config.json: {weight:.4f}")
+            print(f"权重已保存到 config.json: {turbine_key} -> {weight:.4f}")
             return True
         except Exception as e:
             print(f"保存权重到 config.json 失败: {e}")
@@ -391,7 +438,7 @@ class GBDTTrainer:
             
             optimal_a = self._optimize_weight(actual_values, baseline_predictions, trained_predictions)
             
-            success = self._save_weight_to_config(optimal_a)
+            success = self._save_weight_to_config(turbine_id=turbine_id, weight=optimal_a)
             
             if success:
                 print(f"[{current_time}] 权重计算完成，最优 a = {optimal_a:.4f}")
