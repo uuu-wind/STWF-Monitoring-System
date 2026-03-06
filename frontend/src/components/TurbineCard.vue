@@ -89,7 +89,6 @@
       <!-- 维护信息 -->
       <div class="maintenance-section">
         <span class="maintenance-label">
-          <el-icon><Clock /></el-icon>
           上次维护: {{ turbine.lastMaintenance }}
         </span>
         <el-button type="primary" size="small" text>
@@ -106,7 +105,6 @@ import {
   Location,
   Warning,
   TrendCharts,
-  Clock,
   ArrowRight
 } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
@@ -137,7 +135,6 @@ export default {
     Location,
     Warning,
     TrendCharts,
-    Clock,
     ArrowRight
   },
   computed: {

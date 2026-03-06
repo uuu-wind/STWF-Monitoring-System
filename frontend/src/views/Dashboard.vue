@@ -17,7 +17,7 @@
             <div class="nav-menu">
               <router-link to="/" class="nav-item active">总体预览</router-link>
               <router-link to="/fault-alarm" class="nav-item">故障告警</router-link>
-              <router-link to="/local-analysis" class="nav-item">局部分析</router-link>
+              <!-- <router-link to="/local-analysis" class="nav-item">局部分析</router-link> -->
             </div>
           </div>
           <div class="toolbar-right">
@@ -50,25 +50,88 @@
       <div class="top-main-content">
         <!-- 左侧数据区域 -->
         <div class="left-data-content">
-          <!-- 数据部分 -->
+          <!-- 风力发电数据部分 -->
           <div class="data-section">
             <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>风力发电</span>
+                </div>
+              </template>
               <div class="data-content">
                 <div class="data-item">
                   <div class="data-label">当日总发电量</div>
-                  <div class="data-value">{{ formatPower(dailyStats.totalGeneration) }}</div>
+                  <div class="data-value">{{ formatPower(dailyStats.totalGeneration || 0) }}</div>
                 </div>
                 <div class="data-item">
                   <div class="data-label">平均发电功率</div>
-                  <div class="data-value">{{ formatPower(dailyStats.avgPower) }}</div>
+                  <div class="data-value">{{ formatPower(dailyStats.avgPower || 0) }}</div>
                 </div>
                 <div class="data-item">
                   <div class="data-label">运行时长</div>
-                  <div class="data-value">{{ dailyStats.runTime }} 小时</div>
+                  <div class="data-value">{{ dailyStats.runTime || 0 }} 小时</div>
                 </div>
                 <div class="data-item">
                   <div class="data-label">平均效率</div>
-                  <div class="data-value">{{ dailyStats.avgEfficiency }}%</div>
+                  <div class="data-value">{{ dailyStats.avgEfficiency || 0 }}%</div>
+                </div>
+              </div>
+            </el-card>
+          </div>
+          
+          <!-- 光热电站数据部分 -->
+          <div class="data-section">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>光热电站</span>
+                </div>
+              </template>
+              <div class="data-content">
+                <div class="data-item">
+                  <div class="data-label">当日总发电量</div>
+                  <div class="data-value">{{ formatPower(actualGeneration.solarThermal || 0) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均发电功率</div>
+                  <div class="data-value">{{ formatPower(actualGeneration.solarThermal || 0) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">运行时长</div>
+                  <div class="data-value">{{ dailyStats.runTime || 0 }} 小时</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均效率</div>
+                  <div class="data-value">{{ (dailyStats.avgEfficiency || 0) }}%</div>
+                </div>
+              </div>
+            </el-card>
+          </div>
+          
+          <!-- 总发电量数据部分 -->
+          <div class="data-section">
+            <el-card shadow="hover">
+              <template #header>
+                <div class="card-header">
+                  <span>总发电量</span>
+                </div>
+              </template>
+              <div class="data-content">
+                <div class="data-item">
+                  <div class="data-label">当日总发电量</div>
+                  <div class="data-value">{{ formatPower((dailyStats.totalGeneration || 0) + (actualGeneration.solarThermal || 0)) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均发电功率</div>
+                  <div class="data-value">{{ formatPower(((dailyStats.avgPower || 0) + (actualGeneration.solarThermal || 0)) / 2) }}</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">运行时长</div>
+                  <div class="data-value">{{ dailyStats.runTime || 0 }} 小时</div>
+                </div>
+                <div class="data-item">
+                  <div class="data-label">平均效率</div>
+                  <div class="data-value">{{ ((dailyStats.avgEfficiency || 0)) }}%</div>
                 </div>
               </div>
             </el-card>
@@ -131,14 +194,14 @@ import * as echarts from 'echarts'
 import axios from 'axios'
 import TurbineCard from '@components/TurbineCard.vue'
 import {
-  Refresh,
-  Setting,
   DataLine,
   TrendCharts,
   Monitor,
   Warning,
   Location,
-  WindPower
+  WindPower,
+  Refresh,
+  Setting
 } from '@element-plus/icons-vue'
 
 // 导入Three.js库
@@ -653,7 +716,9 @@ export default {
       formatKilowatt,
       refreshData,
       navigateToTurbine,
-      navigateToSettings
+      navigateToSettings,
+      Refresh,
+      Setting
     }
   }
 }
@@ -844,13 +909,13 @@ export default {
 
 /* 数据部分 */
 .data-section {
-  width: 15%;
+  width: 10%;
   height: 50%;
 }
 
 .data-section .el-card {
-  height: 100%;
-  border-radius: 12px;
+  height: 120%;
+  border-radius: 5px;
 }
 
 .data-content {
@@ -978,6 +1043,7 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 5px 10px;
 }
 
 .card-header span {

@@ -915,16 +915,20 @@ const copyFromTurbine = async (sourceTurbineId) => {
 </script>
 
 <style scoped>
+/* 主容器 */
 .settings-container {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: rgba(39, 64, 139, 0.8);
+  backdrop-filter: blur(10px);
 }
 
+/* 侧边栏 */
 .sidebar {
   width: 200px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #dee2e6;
+  background: rgba(255, 255, 255, 0.1);
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
   padding: 20px 0;
 }
 
@@ -932,31 +936,89 @@ const copyFromTurbine = async (sourceTurbineId) => {
   padding: 15px 20px;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .sidebar-item:hover {
-  background-color: #e9ecef;
+  background: rgba(79, 195, 247, 0.3);
+  color: white;
+  box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
 }
 
 .sidebar-item.active {
-  background-color: #007bff;
+  background: rgba(79, 195, 247, 0.5);
   color: white;
+  box-shadow: 0 0 15px rgba(79, 195, 247, 0.7);
+  border-color: rgba(79, 195, 247, 0.8);
 }
 
+/* 主要内容区域 */
 .main-content {
   flex: 1;
   padding: 30px;
   overflow-y: auto;
 }
 
+/* 标题样式 */
+h1 {
+  color: white;
+  font-size: 24px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
+}
+
+h3 {
+  color: white;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-shadow: 0 0 5px rgba(79, 195, 247, 0.5);
+}
+
+/* 设置部分 */
 .setting-section {
   margin-top: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .setting-row {
   margin-bottom: 20px;
 }
 
+/* 标签样式 */
+.form-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* 输入框和选择框样式 */
+.form-control,
+.form-select {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: white;
+  padding: 10px;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(79, 195, 247, 0.8);
+  box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+  outline: none;
+}
+
+/* 通道设置 */
 .channels-section {
   margin-top: 30px;
 }
@@ -964,10 +1026,12 @@ const copyFromTurbine = async (sourceTurbineId) => {
 .channel-row {
   margin-bottom: 15px;
   padding: 15px;
-  background-color: #f8f9fa;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* 计算通道设置 */
 .calculate-section {
   margin-top: 30px;
 }
@@ -975,11 +1039,12 @@ const copyFromTurbine = async (sourceTurbineId) => {
 .calculate-row {
   margin-bottom: 15px;
   padding: 15px;
-  background-color: #e3f2fd;
+  background: rgba(79, 195, 247, 0.2);
   border-radius: 8px;
-  border-left: 4px solid #2196f3;
+  border-left: 4px solid rgba(79, 195, 247, 0.8);
 }
 
+/* 保存按钮容器 */
 .save-button-container {
   display: flex;
   justify-content: flex-end;
@@ -987,55 +1052,75 @@ const copyFromTurbine = async (sourceTurbineId) => {
   margin-top: 30px;
 }
 
-.save-button {
+/* 按钮样式 */
+.btn {
   padding: 10px 30px;
   font-size: 16px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+  border: 1px solid transparent;
+}
+
+.btn-primary {
+  background: rgba(79, 195, 247, 0.8);
+  color: white;
+  border-color: rgba(79, 195, 247, 0.8);
+}
+
+.btn-primary:hover {
+  background: rgba(79, 195, 247, 1);
+  box-shadow: 0 0 15px rgba(79, 195, 247, 0.7);
 }
 
 .train-button {
-  padding: 10px 30px;
-  font-size: 16px;
-  background-color: #28a745;
-  border-color: #28a745;
+  background: rgba(40, 167, 69, 0.8);
+  border-color: rgba(40, 167, 69, 0.8);
+  color: white;
 }
 
 .train-button:hover {
-  background-color: #218838;
-  border-color: #1e7e34;
+  background: rgba(40, 167, 69, 1);
+  box-shadow: 0 0 15px rgba(40, 167, 69, 0.7);
 }
 
 .train-button:disabled {
-  background-color: #6c757d;
-  border-color: #6c757d;
+  background: rgba(108, 117, 125, 0.8);
+  border-color: rgba(108, 117, 125, 0.8);
   cursor: not-allowed;
 }
 
 .copy-button {
-  padding: 10px 30px;
-  font-size: 16px;
-  background-color: #17a2b8;
-  border-color: #17a2b8;
+  background: rgba(23, 162, 184, 0.8);
+  border-color: rgba(23, 162, 184, 0.8);
+  color: white;
 }
 
 .copy-button:hover {
-  background-color: #138496;
-  border-color: #117a8b;
+  background: rgba(23, 162, 184, 1);
+  box-shadow: 0 0 15px rgba(23, 162, 184, 0.7);
 }
 
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+}
+
+/* 风机信息设置 */
 .turbine-section {
   margin-top: 30px;
-}
-
-.turbine-section h3,
-.turbine-system-section h3 {
-  margin-bottom: 20px;
-  color: #333;
 }
 
 .turbine-system-section {
   margin-top: 30px;
 }
 
+/* 模态框 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1050,19 +1135,22 @@ const copyFromTurbine = async (sourceTurbineId) => {
 }
 
 .modal-content {
-  background-color: white;
-  border-radius: 8px;
+  background: rgba(39, 64, 139, 0.95);
+  border-radius: 12px;
   padding: 30px;
   min-width: 400px;
   max-width: 600px;
   max-height: 80vh;
   overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
 }
 
 .modal-content h2 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #333;
+  color: white;
+  text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
 }
 
 .turbine-list {
@@ -1074,18 +1162,20 @@ const copyFromTurbine = async (sourceTurbineId) => {
 
 .turbine-item {
   padding: 15px;
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
   text-align: center;
   cursor: pointer;
   transition: all 0.3s ease;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .turbine-item:hover {
-  background-color: #007bff;
+  background: rgba(79, 195, 247, 0.5);
   color: white;
-  border-color: #007bff;
+  border-color: rgba(79, 195, 247, 0.8);
+  box-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
 }
 
 .modal-actions {
@@ -1094,25 +1184,26 @@ const copyFromTurbine = async (sourceTurbineId) => {
   gap: 10px;
 }
 
+/* 训练结果 */
 .train-result {
   margin-top: 30px;
   padding: 20px;
-  background-color: #f8f9fa;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  border-left: 4px solid #007bff;
+  border-left: 4px solid rgba(79, 195, 247, 0.8);
 }
 
 .train-result h3 {
   margin-top: 0;
   margin-bottom: 20px;
-  color: #333;
+  color: white;
 }
 
 .result-item {
   display: flex;
   justify-content: space-between;
   padding: 10px 0;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .result-item:last-child {
@@ -1121,20 +1212,20 @@ const copyFromTurbine = async (sourceTurbineId) => {
 
 .result-label {
   font-weight: 600;
-  color: #495057;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .result-value {
-  color: #212529;
+  color: white;
 }
 
 .result-value.success {
-  color: #28a745;
+  color: rgba(40, 167, 69, 1);
   font-weight: 600;
 }
 
 .result-value.error {
-  color: #dc3545;
+  color: rgba(220, 53, 69, 1);
   font-weight: 600;
 }
 
@@ -1149,7 +1240,7 @@ const copyFromTurbine = async (sourceTurbineId) => {
     height: auto;
     display: flex;
     border-right: none;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
   }
 
   .sidebar-item {

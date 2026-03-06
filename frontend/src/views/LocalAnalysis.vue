@@ -16,12 +16,24 @@
             </div>
           </div>
           <div class="toolbar-right">
-            <el-button type="primary" @click="refreshData">
+            <el-button type="primary" :icon="Refresh" @click="refreshData">
               刷新数据
             </el-button>
-            <el-button>
+            <el-button :icon="Setting" @click="navigateToSettings">
               系统设置
             </el-button>
+            <el-select v-model="selectedTurbine" placeholder="选择风机" clearable @change="navigateToTurbine">
+              <el-option label="风机1" value="T001" />
+              <el-option label="风机2" value="T002" />
+              <el-option label="风机3" value="T003" />
+              <el-option label="风机4" value="T004" />
+              <el-option label="风机5" value="T005" />
+              <el-option label="风机6" value="T006" />
+              <el-option label="风机7" value="T007" />
+              <el-option label="风机8" value="T008" />
+              <el-option label="风机9" value="T009" />
+              <el-option label="风机10" value="T010" />
+            </el-select>
           </div>
         </div>
       </el-card>
@@ -177,14 +189,18 @@
             <template #header>
               <div class="card-header">
                 <span>风速风向</span>
+                <div class="layer-options-row">
+                  <el-checkbox v-model="showWindSpeedChart" class="layer-checkbox">风速</el-checkbox>
+                  <el-checkbox v-model="showWindRoseChart" class="layer-checkbox">风向</el-checkbox>
+                </div>
               </div>
             </template>
             <div class="wind-split">
-              <div class="wind-panel">
+              <div class="wind-panel" v-if="showWindSpeedChart">
                 <div class="wind-panel-title">风速</div>
                 <div ref="windSpeedChart" class="wind-panel-chart"></div>
               </div>
-              <div class="wind-panel">
+              <div class="wind-panel" v-if="showWindRoseChart">
                 <div class="wind-panel-title">风向</div>
                 <div ref="windRoseChart" class="wind-panel-chart"></div>
               </div>
@@ -226,13 +242,13 @@
 
 <script>
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import axios from 'axios'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import { WindPower } from '@element-plus/icons-vue'
+import { WindPower, Refresh, Setting } from '@element-plus/icons-vue'
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader'
 
 // API基础URL
@@ -252,6 +268,7 @@ export default {
   setup() {
     // 获取路由参数
     const route = useRoute()
+    const router = useRouter()
     
     // 从路由参数中获取风机ID，默认为T001
     const turbineId = computed(() => {
@@ -308,6 +325,9 @@ export default {
     const loading = ref(false)
     const showHorizontalWindLayer = ref(true)
     const showVerticalWindLayer = ref(false)
+    const showWindSpeedChart = ref(true)
+    const showWindRoseChart = ref(true)
+    const selectedTurbine = ref(turbineId.value)
 
     // 图表引用
     const windSpeedChart = ref(null)
@@ -707,6 +727,18 @@ export default {
         console.error('获取发电量趋势失败:', error)
         ElMessage.error('获取发电量趋势失败')
       }
+    }
+
+    // 跳转到风机详情页
+    const navigateToTurbine = (turbineId) => {
+      if (turbineId) {
+        router.push(`/local-analysis/${turbineId}`)
+      }
+    }
+
+    // 跳转到设置页面
+    const navigateToSettings = () => {
+      router.push('/settings')
     }
 
     // 刷新数据
@@ -1308,8 +1340,16 @@ export default {
       powerChart,
       alertChart,
       threeJsContainer,
+      selectedTurbine,
+      navigateToTurbine,
+      navigateToSettings,
+      router,
+      Refresh,
+      Setting,
       showHorizontalWindLayer,
       showVerticalWindLayer,
+      showWindSpeedChart,
+      showWindRoseChart,
       formatPower,
       formatOrientation,
       refreshData
@@ -1595,8 +1635,8 @@ export default {
 
 /* 中间底部区域：新增框图 */
 .middle-bottom-section {
-  width: 52.5%;
-  height: 20%;
+  width: 53%;
+  height: 22%;
   position: absolute;
   bottom: 0;
   left: calc(25% + 15px);
